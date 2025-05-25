@@ -1,6 +1,3 @@
-# Оновлена версія beauty_bot.py з текстовим MessageHandler
-
-code = """
 from dotenv import load_dotenv
 import os
 
@@ -14,7 +11,6 @@ from telegram.ext import (
     MessageHandler, filters
 )
 from apscheduler.schedulers.background import BackgroundScheduler
-from datetime import datetime, timedelta
 from google_sheets import add_to_google_sheet
 
 ADMIN_ID = int(os.environ["ADMIN_ID"])
@@ -23,7 +19,7 @@ scheduler = BackgroundScheduler()
 def init_db():
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-    c.execute(\"\"\"
+    c.execute("""
         CREATE TABLE IF NOT EXISTS bookings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT,
@@ -34,7 +30,7 @@ def init_db():
             time TEXT,
             user_id INTEGER
         )
-    \"\"\")
+    """)
     conn.commit()
     conn.close()
 
@@ -102,11 +98,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await context.bot.send_message(
             chat_id=ADMIN_ID,
-            text=f\"\"\"📥 Новий запис:
+            text=f"""📥 Новий запис:
 Ім'я: {name} {surname}
 Телефон: {phone}
 Процедура: {procedure}
-Дата: {date} о {time}\"\"\"
+Дата: {date} о {time}"""
         )
 
         context.user_data.clear()
@@ -163,9 +159,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-"""
-
-with open("/mnt/data/beauty_bot.py", "w", encoding="utf-8") as f:
-    f.write(code)
-
-"/mnt/data/beauty_bot.py"
