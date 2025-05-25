@@ -4,7 +4,6 @@ import os
 load_dotenv()  # Завантажує змінні з .env
 TOKEN = os.getenv('TELEGRAM_TOKEN')
 
-import os
 import sqlite3
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -29,18 +28,11 @@ def init_db():
             phone TEXT,
             procedure TEXT,
             date TEXT,
-            time TEXT
+            time TEXT,
+            user_id INTEGER
         )
     """)
-    c.execute("PRAGMA table_info(bookings)")
-    columns = [col[1] for col in c.fetchall()]
-    if 'user_id' not in columns:
-        try:
-            c.execute("ALTER TABLE bookings ADD COLUMN user_id INTEGER")
-        except Exception as e:
-            print("❌ Не вдалося додати user_id:", e)
     conn.commit()
-    add_to_google_sheet(name, surname, phone, procedure, date, time)
     conn.close()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -92,7 +84,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         c.execute("INSERT INTO bookings (user_id, name, surname, phone, procedure, date, time) VALUES (?, ?, ?, ?, ?, ?, ?)",
                   (user_id, name, surname, phone, procedure, date, time))
         conn.commit()
-        add_to_google_sheet(name, surname, phone, procedure, date, time)
         conn.close()
 
         add_to_google_sheet(name, surname, phone, procedure, date, time)
@@ -117,8 +108,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         context.user_data.clear()
 
-<<<<<<< HEAD
-# (решта коду не змінювалася, тому його опускаємо для збереження простору)
-=======
-# (решта коду не змінювалася, тому його опускаємо для збереження простору)
->>>>>>> d82f3d3 (Initial commit: Telegram beauty bot)
+def main():
+    init_db()
+    app = ApplicationBuilder().token(TOKEN).build()
+
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(button_handler))
+
+    # Додай інші потрібні хендлери (наприклад, для повідомлень)
+    # app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, some_other_handler))
+
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()
