@@ -68,7 +68,9 @@ def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{name}, {phone}, {procedure}, {date} о {time}"
             for name, phone, procedure, date, time in rows
         ]
-        reply_text = '📋 Усі записи:\n' + '\n'.join(lines)
+        reply_text = '📋 Усі записи:
+' + '
+'.join(lines)
     else:
         reply_text = 'Записів не знайдено.'
 
@@ -144,15 +146,10 @@ def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Notify admin
         query.bot.send_message(
             chat_id=ADMIN_ID,
-            text=(
-                f"📥 Новий запис:
-"
-                f"ПІБ/Телефон: {name} / {phone}
-"
-                f"Процедура: {procedure}
-"
-                f"Дата: {date} о {time_str}"
-            )
+            text=f"📥 Новий запис:
+ПІБ/Телефон: {name} / {phone}
+Процедура: {procedure}
+Дата: {date} о {time_str}"
         )
 
         # Schedule reminder
