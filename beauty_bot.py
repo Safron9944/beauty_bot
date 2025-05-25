@@ -1,3 +1,4 @@
+
 from dotenv import load_dotenv
 import os
 
@@ -155,7 +156,9 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         rows = c.fetchall()
         conn.close()
         if rows:
-            reply = "Ваші записи:\n" + "\n".join(
+            reply = "Ваші записи:
+" + "
+".join(
                 [f"{name}, {procedure}, {date} о {time}" for name, procedure, date, time in rows]
             )
         else:
