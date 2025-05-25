@@ -6,10 +6,7 @@ TOKEN = os.getenv('TELEGRAM_TOKEN')
 
 import sqlite3
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import (
-    ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes,
-    MessageHandler, filters
-)
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime, timedelta
 from google_sheets import add_to_google_sheet
@@ -63,7 +60,6 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-
     if query.data == 'book':
         keyboard = [
             [InlineKeyboardButton("Корекція брів", callback_data='proc_brows')],
@@ -72,11 +68,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("Ламінування вій", callback_data='proc_lam_lashes')]
         ]
         await query.message.reply_text("Оберіть процедуру:", reply_markup=InlineKeyboardMarkup(keyboard))
-
     elif query.data == 'check_booking':
         await query.message.reply_text("Введіть ваш номер телефону (тільки цифри):")
         context.user_data['step'] = 'check_phone'
-
     elif query.data.startswith('proc_'):
         proc_map = {
             'proc_brows': 'Корекція брів',
@@ -87,19 +81,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['procedure'] = proc_map[query.data]
         await query.message.reply_text("Введіть дату у форматі ДД.MM:")
         context.user_data['step'] = 'get_date'
-
     elif query.data.startswith("time_"):
         time = query.data.replace("time_", "")
         fullinfo = context.user_data.get('fullinfo', '')
         procedure = context.user_data.get('procedure', '')
         date = context.user_data.get('date', '')
         user_id = query.from_user.id
-
         try:
             name, phone = [s.strip() for s in fullinfo.split(',', 1)]
         except ValueError:
             name, phone = fullinfo.strip(), "N/A"
-
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
         c.execute(
@@ -108,9 +99,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         conn.commit()
         conn.close()
-
         add_to_google_sheet(name, phone, procedure, date, time)
-
         keyboard = [
             [InlineKeyboardButton("📝 Записатися на процедури", callback_data='book')],
             [InlineKeyboardButton("📅 Перевірити мій запис", callback_data='check_booking')]
@@ -119,7 +108,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"✅ Вас записано на {procedure} {date} о {time}. Дякуємо, {name}!",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
-
         await context.bot.send_message(
             chat_id=ADMIN_ID,
             text=(
@@ -132,67 +120,45 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"Дата: {date} о {time}"
             )
         )
-
         event_time = datetime.strptime(f"{date} {time}", "%d.%m %H:%M")
         remind_day = event_time - timedelta(days=1)
         remind_time = remind_day.replace(hour=10, minute=0, second=0, microsecond=0)
         now = datetime.now()
         if remind_time > now:
-            scheduler.add_job(
-                send_reminder,
-                'date',
-                run_date=remind_time,
-                args=[user_id, procedure, date, time]
-            )
+            scheduler.add_job(send_reminder, 'date', run_date=remind_time, args=[user_id, procedure, date, time])
             scheduler.start()
-
         context.user_data.clear()
 
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_step = context.user_data.get('step')
     text = update.message.text
-
     if user_step == 'get_date':
         context.user_data['date'] = text
         await update.message.reply_text(
             "Введіть ПІБ та номер телефону через кому (наприклад: Іваненко Марія, 0931234567):"
         )
         context.user_data['step'] = 'get_fullinfo'
-
     elif user_step == 'get_fullinfo':
         context.user_data['fullinfo'] = text
         times = ['14:00', '15:00', '16:00', '17:00', '18:00']
-        keyboard = [
-            [InlineKeyboardButton(time, callback_data=f"time_{time}")]
-            for time in times
-        ]
-        await update.message.reply_text(
-            "Оберіть час:",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        keyboard = [[InlineKeyboardButton(time, callback_data=f"time_{time}")] for time in times]
+        await update.message.reply_text("Оберіть час:", reply_markup=InlineKeyboardMarkup(keyboard))
         context.user_data['step'] = None
-
     elif user_step == 'check_phone':
         phone = text.strip()
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-        c.execute(
-            "SELECT name, procedure, date, time FROM bookings WHERE phone LIKE ?", 
-            (f"%{phone}%",)
-        )
+        c.execute("SELECT name, procedure, date, time FROM bookings WHERE phone LIKE ?", (f"%{phone}%",))
         rows = c.fetchall()
         conn.close()
         if rows:
             reply = "Ваші записи:
 " + "
-".join(
-                [f"{name}, {procedure}, {date} о {time}" for name, procedure, date, time in rows]
-            )
+".join([f"{name}, {procedure}, {date} о {time}" for name, procedure, date, time in rows])
         else:
             reply = "Записів не знайдено."
         await update.message.reply_text(reply)
         context.user_data['step'] = None
-
     else:
         await update.message.reply_text("Оберіть дію за допомогою кнопок /start")
 
@@ -200,22 +166,17 @@ async def send_reminder(user_id, procedure, date, time):
     from telegram import Bot
     bot = Bot(token=TOKEN)
     try:
-        await bot.send_message(
-            chat_id=user_id,
-            text=f"⏰ Нагадування! Ваш запис: {procedure} {date} о {time}."
-        )
+        await bot.send_message(chat_id=user_id, text=f"⏰ Нагадування! Ваш запис: {procedure} {date} о {time}.")
     except Exception as e:
         print(f"Не вдалося надіслати нагадування: {e}")
 
 def main():
     init_db()
     app = ApplicationBuilder().token(TOKEN).build()
-
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("admin", admin))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
-
     app.run_polling()
 
 if __name__ == "__main__":
