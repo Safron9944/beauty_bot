@@ -1,3 +1,4 @@
+
 from dotenv import load_dotenv
 import os
 
@@ -11,6 +12,7 @@ from telegram.ext import (
     MessageHandler, filters
 )
 from apscheduler.schedulers.background import BackgroundScheduler
+from datetime import datetime, timedelta
 from google_sheets import add_to_google_sheet
 
 ADMIN_ID = int(os.environ["ADMIN_ID"])
@@ -23,7 +25,6 @@ def init_db():
         CREATE TABLE IF NOT EXISTS bookings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT,
-            surname TEXT,
             phone TEXT,
             procedure TEXT,
             date TEXT,
@@ -55,7 +56,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("Оберіть процедуру:", reply_markup=InlineKeyboardMarkup(keyboard))
 
     elif query.data == 'check_booking':
-        await query.message.reply_text("Введіть ваш номер телефону для перевірки:")
+        await query.message.reply_text("Введіть ваш номер телефону (тільки цифри):")
         context.user_data['step'] = 'check_phone'
 
     elif query.data.startswith('proc_'):
@@ -71,21 +72,25 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif query.data.startswith("time_"):
         time = query.data.replace("time_", "")
-        name = context.user_data['name']
-        surname = context.user_data['surname']
-        phone = context.user_data['phone']
+        fullinfo = context.user_data['fullinfo']
         procedure = context.user_data['procedure']
         date = context.user_data['date']
         user_id = query.from_user.id
 
+        # Парсимо ПІБ і телефон
+        try:
+            name, phone = [s.strip() for s in fullinfo.split(',', 1)]
+        except Exception:
+            name, phone = fullinfo.strip(), "N/A"
+
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-        c.execute("INSERT INTO bookings (user_id, name, surname, phone, procedure, date, time) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                  (user_id, name, surname, phone, procedure, date, time))
+        c.execute("INSERT INTO bookings (user_id, name, phone, procedure, date, time) VALUES (?, ?, ?, ?, ?, ?)",
+                  (user_id, name, phone, procedure, date, time))
         conn.commit()
         conn.close()
 
-        add_to_google_sheet(name, surname, phone, procedure, date, time)
+        add_to_google_sheet(name, "", phone, procedure, date, time)
 
         keyboard = [
             [InlineKeyboardButton("📝 Записатися на процедури", callback_data='book')],
@@ -96,14 +101,28 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
+        # Адміну повідомлення
         await context.bot.send_message(
             chat_id=ADMIN_ID,
             text=f"""📥 Новий запис:
-Ім'я: {name} {surname}
-Телефон: {phone}
+ПІБ/Телефон: {name} / {phone}
 Процедура: {procedure}
 Дата: {date} о {time}"""
         )
+
+        # Плануємо нагадування за добу о 10:00 ранку
+        event_time = datetime.strptime(f"{date} {time}", "%d.%m %H:%M")
+        remind_day = event_time - timedelta(days=1)
+        remind_time = remind_day.replace(hour=10, minute=0, second=0, microsecond=0)
+        now = datetime.now()
+        if remind_time > now:
+            scheduler.add_job(
+                send_reminder,
+                'date',
+                run_date=remind_time,
+                args=[user_id, procedure, date, time]
+            )
+            scheduler.start()
 
         context.user_data.clear()
 
@@ -113,22 +132,12 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if user_step == 'get_date':
         context.user_data['date'] = text
-        await update.message.reply_text("Введіть ваше ім'я:")
-        context.user_data['step'] = 'get_name'
+        await update.message.reply_text("Введіть ПІБ та номер телефону через кому (наприклад: Іваненко Марія, 0931234567):")
+        context.user_data['step'] = 'get_fullinfo'
 
-    elif user_step == 'get_name':
-        context.user_data['name'] = text
-        await update.message.reply_text("Введіть ваше прізвище:")
-        context.user_data['step'] = 'get_surname'
-
-    elif user_step == 'get_surname':
-        context.user_data['surname'] = text
-        await update.message.reply_text("Введіть номер телефону:")
-        context.user_data['step'] = 'get_phone'
-
-    elif user_step == 'get_phone':
-        context.user_data['phone'] = text
-        times = ['09:00', '10:00', '11:00', '12:00', '13:00']
+    elif user_step == 'get_fullinfo':
+        context.user_data['fullinfo'] = text
+        times = ['14:00', '15:00', '16:00', '17:00', '18:00']
         keyboard = [
             [InlineKeyboardButton(time, callback_data=f"time_{time}")]
             for time in times
@@ -140,12 +149,36 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['step'] = None
 
     elif user_step == 'check_phone':
-        phone = text
-        await update.message.reply_text("Пошук запису за телефоном ще не реалізовано.")
+        phone = text.strip()
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("SELECT name, procedure, date, time FROM bookings WHERE phone LIKE ?", (f"%{phone}%",))
+        rows = c.fetchall()
+        conn.close()
+        if rows:
+            reply = "Ваші записи:
+" + "
+".join(
+                [f"{name}, {procedure}, {date} о {time}" for name, procedure, date, time in rows]
+            )
+        else:
+            reply = "Записів не знайдено."
+        await update.message.reply_text(reply)
         context.user_data['step'] = None
 
     else:
         await update.message.reply_text("Оберіть дію за допомогою кнопок /start")
+
+async def send_reminder(user_id, procedure, date, time):
+    from telegram import Bot
+    bot = Bot(token=TOKEN)
+    try:
+        await bot.send_message(
+            chat_id=user_id,
+            text=f"⏰ Нагадування! Ваш запис: {procedure} {date} о {time}."
+        )
+    except Exception as e:
+        print(f"Не вдалося надіслати нагадування: {e}")
 
 def main():
     init_db()
