@@ -1,7 +1,10 @@
+# Оновлена версія beauty_bot.py з текстовим MessageHandler
+
+code = """
 from dotenv import load_dotenv
 import os
 
-load_dotenv()  # Завантажує змінні з .env
+load_dotenv()
 TOKEN = os.getenv('TELEGRAM_TOKEN')
 
 import sqlite3
@@ -20,7 +23,7 @@ scheduler = BackgroundScheduler()
 def init_db():
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-    c.execute("""
+    c.execute(\"\"\"
         CREATE TABLE IF NOT EXISTS bookings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT,
@@ -31,7 +34,7 @@ def init_db():
             time TEXT,
             user_id INTEGER
         )
-    """)
+    \"\"\")
     conn.commit()
     conn.close()
 
@@ -99,14 +102,54 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await context.bot.send_message(
             chat_id=ADMIN_ID,
-            text=f"""📥 Новий запис:
+            text=f\"\"\"📥 Новий запис:
 Ім'я: {name} {surname}
 Телефон: {phone}
 Процедура: {procedure}
-Дата: {date} о {time}"""
+Дата: {date} о {time}\"\"\"
         )
 
         context.user_data.clear()
+
+async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_step = context.user_data.get('step')
+    text = update.message.text
+
+    if user_step == 'get_date':
+        context.user_data['date'] = text
+        await update.message.reply_text("Введіть ваше ім'я:")
+        context.user_data['step'] = 'get_name'
+
+    elif user_step == 'get_name':
+        context.user_data['name'] = text
+        await update.message.reply_text("Введіть ваше прізвище:")
+        context.user_data['step'] = 'get_surname'
+
+    elif user_step == 'get_surname':
+        context.user_data['surname'] = text
+        await update.message.reply_text("Введіть номер телефону:")
+        context.user_data['step'] = 'get_phone'
+
+    elif user_step == 'get_phone':
+        context.user_data['phone'] = text
+        times = ['09:00', '10:00', '11:00', '12:00', '13:00']
+        keyboard = [
+            [InlineKeyboardButton(time, callback_data=f"time_{time}")]
+            for time in times
+        ]
+        await update.message.reply_text(
+            "Оберіть час:",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        context.user_data['step'] = None
+
+    elif user_step == 'check_phone':
+        phone = text
+        await update.message.reply_text("Пошук запису за телефоном ще не реалізовано.")
+        context.user_data['step'] = None
+
+    else:
+        await update.message.reply_text("Оберіть дію за допомогою кнопок /start")
 
 def main():
     init_db()
@@ -114,11 +157,15 @@ def main():
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
-
-    # Додай інші потрібні хендлери (наприклад, для повідомлень)
-    # app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, some_other_handler))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
 
     app.run_polling()
 
 if __name__ == "__main__":
     main()
+"""
+
+with open("/mnt/data/beauty_bot.py", "w", encoding="utf-8") as f:
+    f.write(code)
+
+"/mnt/data/beauty_bot.py"
