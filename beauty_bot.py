@@ -32,7 +32,8 @@ CREATE TABLE IF NOT EXISTS bookings (
     procedure TEXT,
     date TEXT,
     time TEXT
-)""")
+)
+""")
     conn.commit()
     conn.close()
 
@@ -67,11 +68,9 @@ def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{name}, {phone}, {procedure}, {date} о {time}"
             for name, phone, procedure, date, time in rows
         ]
-        reply_text = "📋 Усі записи:
-" + "
-".join(lines)
+        reply_text = '📋 Усі записи:\n' + '\n'.join(lines)
     else:
-        reply_text = "Записів не знайдено."
+        reply_text = 'Записів не знайдено.'
 
     update.message.reply_text(reply_text)
 
@@ -129,7 +128,7 @@ def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn.commit()
         conn.close()
 
-        # Add to Google Sheet
+        # Write to Google Sheet
         add_to_google_sheet(name, phone, procedure, date, time_str)
 
         # Send confirmation
