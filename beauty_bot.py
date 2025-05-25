@@ -14,7 +14,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime, timedelta
 from google_sheets import add_to_google_sheet
 
-ADMIN_ID = int(os.environ["ADMIN_ID"])
+ADMIN_ID = int(os.environ.get("ADMIN_ID", 0))
 scheduler = BackgroundScheduler()
 
 def init_db():
@@ -40,6 +40,29 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("📅 Перевірити мій запис", callback_data='check_booking')]
     ]
     await update.message.reply_text("Привіт! Оберіть дію:", reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Команда для адміністратора, показує всі записи
+    user_id = update.message.from_user.id
+    if user_id != ADMIN_ID:
+        await update.message.reply_text("У вас немає доступу до цієї команди.")
+        return
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+    c.execute(
+        "SELECT name, phone, procedure, date, time FROM bookings ORDER BY id DESC"
+    )
+    rows = c.fetchall()
+    conn.close()
+    if rows:
+        reply = "📋 Усі записи:
+" + "
+".join(
+            [f"{name}, {phone}, {procedure}, {date} о {time}" for name, phone, procedure, date, time in rows]
+        )
+    else:
+        reply = "Записів не знайдено."
+    await update.message.reply_text(reply)
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -71,9 +94,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif query.data.startswith("time_"):
         time = query.data.replace("time_", "")
-        fullinfo = context.user_data['fullinfo']
-        procedure = context.user_data['procedure']
-        date = context.user_data['date']
+        fullinfo = context.user_data.get('fullinfo', '')
+        procedure = context.user_data.get('procedure', '')
+        date = context.user_data.get('date', '')
         user_id = query.from_user.id
 
         try:
@@ -90,7 +113,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn.commit()
         conn.close()
 
-        add_to_google_sheet(name, "", phone, procedure, date, time)
+        add_to_google_sheet(name, phone, procedure, date, time)
 
         keyboard = [
             [InlineKeyboardButton("📝 Записатися на процедури", callback_data='book')],
@@ -103,10 +126,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await context.bot.send_message(
             chat_id=ADMIN_ID,
-            text=f"""📥 Новий запис:
+            text=f"📥 Новий запис:
 ПІБ/Телефон: {name} / {phone}
 Процедура: {procedure}
-Дата: {date} о {time}"""
+Дата: {date} о {time}"
         )
 
         event_time = datetime.strptime(f"{date} {time}", "%d.%m %H:%M")
@@ -142,7 +165,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton(time, callback_data=f"time_{time}")]
             for time in times
         ]
-        await update. message. reply_text(
+        await update.message.reply_text(
             "Оберіть час:",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
@@ -159,7 +182,9 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         rows = c.fetchall()
         conn.close()
         if rows:
-            reply = "Ваші записи:\n" + "\n".join(
+            reply = "Ваші записи:
+" + "
+".join(
                 [f"{name}, {procedure}, {date} о {time}" for name, procedure, date, time in rows]
             )
         else:
@@ -186,6 +211,7 @@ def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("admin", admin))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
 
