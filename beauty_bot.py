@@ -17,8 +17,8 @@ scheduler = BackgroundScheduler()
 def init_db():
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS bookings (
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS bookings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT,
             phone TEXT,
@@ -26,8 +26,8 @@ def init_db():
             date TEXT,
             time TEXT,
             user_id INTEGER
-        )
-    """)
+        )"""
+    )
     conn.commit()
     conn.close()
 
@@ -50,12 +50,10 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn.close()
     if rows:
         entries = [f"{name}, {phone}, {procedure}, {date} о {time}" for name, phone, procedure, date, time in rows]
-        reply = "📋 Усі записи:
-" + "
-".join(entries)
+        reply_text = "📋 Усі записи:\n" + "\n".join(entries)
     else:
-        reply = "Записів не знайдено."
-    await update.message.reply_text(reply)
+        reply_text = "Записів не знайдено."
+    await update.message.reply_text(reply_text)
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -82,13 +80,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("Введіть дату у форматі ДД.MM:")
         context.user_data['step'] = 'get_date'
     elif query.data.startswith("time_"):
-        time = query.data.replace("time_", "")
+        time = query.data.split("_",1)[1]
         fullinfo = context.user_data.get('fullinfo', '')
         procedure = context.user_data.get('procedure', '')
         date = context.user_data.get('date', '')
         user_id = query.from_user.id
         try:
-            name, phone = [s.strip() for s in fullinfo.split(',', 1)]
+            name, phone = [s.strip() for s in fullinfo.split(",", 1)]
         except ValueError:
             name, phone = fullinfo.strip(), "N/A"
         conn = sqlite3.connect('appointments.db')
@@ -100,61 +98,58 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn.commit()
         conn.close()
         add_to_google_sheet(name, phone, procedure, date, time)
-        keyboard = [
+        reply_keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("📝 Записатися на процедури", callback_data='book')],
             [InlineKeyboardButton("📅 Перевірити мій запис", callback_data='check_booking')]
-        ]
+        ])
         await query.message.reply_text(
             f"✅ Вас записано на {procedure} {date} о {time}. Дякуємо, {name}!",
-            reply_markup=InlineKeyboardMarkup(keyboard)
+            reply_markup=reply_keyboard
         )
         await context.bot.send_message(
             chat_id=ADMIN_ID,
             text=(
-                f"📥 Новий запис:
-"
-                f"ПІБ/Телефон: {name} / {phone}
-"
-                f"Процедура: {procedure}
-"
+                f"📥 Новий запис:\n"
+                f"ПІБ/Телефон: {name} / {phone}\n"
+                f"Процедура: {procedure}\n"
                 f"Дата: {date} о {time}"
             )
         )
         event_time = datetime.strptime(f"{date} {time}", "%d.%m %H:%M")
-        remind_day = event_time - timedelta(days=1)
-        remind_time = remind_day.replace(hour=10, minute=0, second=0, microsecond=0)
-        now = datetime.now()
-        if remind_time > now:
+        remind_time = (event_time - timedelta(days=1)).replace(hour=10, minute=0, second=0, microsecond=0)
+        if remind_time > datetime.now():
             scheduler.add_job(send_reminder, 'date', run_date=remind_time, args=[user_id, procedure, date, time])
             scheduler.start()
         context.user_data.clear()
 
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_step = context.user_data.get('step')
+    step = context.user_data.get('step')
     text = update.message.text
-    if user_step == 'get_date':
+    if step == 'get_date':
         context.user_data['date'] = text
         await update.message.reply_text(
             "Введіть ПІБ та номер телефону через кому (наприклад: Іваненко Марія, 0931234567):"
         )
         context.user_data['step'] = 'get_fullinfo'
-    elif user_step == 'get_fullinfo':
+    elif step == 'get_fullinfo':
         context.user_data['fullinfo'] = text
         times = ['14:00', '15:00', '16:00', '17:00', '18:00']
-        keyboard = [[InlineKeyboardButton(time, callback_data=f"time_{time}")] for time in times]
-        await update.message.reply_text("Оберіть час:", reply_markup=InlineKeyboardMarkup(keyboard))
+        await update.message.reply_text(
+            "Оберіть час:",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(t, callback_data=f"time_{t}")] for t in times])
+        )
         context.user_data['step'] = None
-    elif user_step == 'check_phone':
-        phone = text.strip()
+    elif step == 'check_phone':
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-        c.execute("SELECT name, procedure, date, time FROM bookings WHERE phone LIKE ?", (f"%{phone}%",))
+        c.execute(
+            "SELECT name, procedure, date, time FROM bookings WHERE phone LIKE ?",
+            (f"%{text.strip()}%",)
+        )
         rows = c.fetchall()
         conn.close()
         if rows:
-            reply = "Ваші записи:
-" + "
-".join([f"{name}, {procedure}, {date} о {time}" for name, procedure, date, time in rows])
+            reply = "Ваші записи:\n" + "\n".join([f"{n}, {p}, {d} о {t}" for n,p,d,t in rows])
         else:
             reply = "Записів не знайдено."
         await update.message.reply_text(reply)
@@ -163,8 +158,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Оберіть дію за допомогою кнопок /start")
 
 async def send_reminder(user_id, procedure, date, time):
-    from telegram import Bot
-    bot = Bot(token=TOKEN)
+    bot = __import__("telegram").Bot(token=TOKEN)
     try:
         await bot.send_message(chat_id=user_id, text=f"⏰ Нагадування! Ваш запис: {procedure} {date} о {time}.")
     except Exception as e:
