@@ -19,8 +19,8 @@ from google_sheets import add_to_google_sheet
 # Scheduler for reminders
 scheduler = BackgroundScheduler()
 
-# Initialize the SQLite database
 def init_db():
+    """Initialize the SQLite database and create the bookings table."""
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
     c.execute("""
@@ -37,8 +37,8 @@ CREATE TABLE IF NOT EXISTS bookings (
     conn.commit()
     conn.close()
 
-# /start command handler
 def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle the /start command."""
     keyboard = [
         [InlineKeyboardButton("📝 Записатися на процедури", callback_data='book')],
         [InlineKeyboardButton("📅 Перевірити мій запис", callback_data='check_booking')]
@@ -48,18 +48,15 @@ def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-# /admin command for administrator
 def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if user_id != ADMIN_ID:
+    """Handle the /admin command for administrators."""
+    if update.effective_user.id != ADMIN_ID:
         update.message.reply_text("У вас немає доступу до цієї команди.")
         return
 
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-    c.execute(
-        "SELECT name, phone, procedure, date, time FROM bookings ORDER BY id DESC"
-    )
+    c.execute("SELECT name, phone, procedure, date, time FROM bookings ORDER BY id DESC")
     rows = c.fetchall()
     conn.close()
 
@@ -68,16 +65,17 @@ def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{name}, {phone}, {procedure}, {date} о {time}"
             for name, phone, procedure, date, time in rows
         ]
-        reply_text = '📋 Усі записи:
-' + '
-'.join(lines)
+        # Single-line literal with newline escape
+        reply_text = "📋 Усі записи:
+" + "
+".join(lines)
     else:
-        reply_text = 'Записів не знайдено.'
+        reply_text = "Записів не знайдено."
 
     update.message.reply_text(reply_text)
 
-# CallbackQuery handler for button clicks
 def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle all callback queries from inline buttons."""
     query = update.callback_query
     query.answer()
     data = query.data
@@ -89,10 +87,7 @@ def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("Ламінування брів", callback_data='proc_lam_brows')],
             [InlineKeyboardButton("Ламінування вій", callback_data='proc_lam_lashes')]
         ]
-        query.message.reply_text(
-            "Оберіть процедуру:",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        query.message.reply_text("Оберіть процедуру:", reply_markup=InlineKeyboardMarkup(keyboard))
 
     elif data == 'check_booking':
         query.message.reply_text("Введіть ваш номер телефону (тільки цифри):")
@@ -153,19 +148,17 @@ def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         # Schedule reminder
-        dt_event = datetime.strptime(f"{date} {time_str}", "%d.%m %H:%M")
-        dt_remind = (dt_event - timedelta(days=1)).replace(hour=10, minute=0, second=0, microsecond=0)
-        if dt_remind > datetime.now():
-            scheduler.add_job(
-                send_reminder, 'date', run_date=dt_remind,
-                args=[user_id, procedure, date, time_str]
-            )
+        event_dt = datetime.strptime(f"{date} {time_str}", "%d.%m %H:%M")
+        remind_dt = (event_dt - timedelta(days=1)).replace(hour=10, minute=0, second=0, microsecond=0)
+        if remind_dt > datetime.now():
+            scheduler.add_job(send_reminder, 'date', run_date=remind_dt,
+                              args=[user_id, procedure, date, time_str])
             scheduler.start()
 
         context.user_data.clear()
 
-# Handler for plain text messages
 def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle plain text messages for steps."""
     step = context.user_data.get('step')
     text = update.message.text.strip()
 
@@ -204,8 +197,8 @@ def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         update.message.reply_text("Оберіть дію за допомогою кнопок /start")
 
-# Send reminder function
 def send_reminder(user_id, procedure, date, time):
+    """Send reminder message one day before."""
     from telegram import Bot
     bot = Bot(token=TOKEN)
     bot.send_message(chat_id=user_id, text=f"⏰ Нагадування! Ваш запис: {procedure} {date} о {time}.")
