@@ -1,4 +1,3 @@
-
 from dotenv import load_dotenv
 import os
 
@@ -67,7 +66,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'proc_lam_lashes': 'Ламінування вій'
         }
         context.user_data['procedure'] = proc_map[query.data]
-        await query.message.reply_text("Введіть дату у форматі ДД.ММ:")
+        await query.message.reply_text("Введіть дату у форматі ДД.MM:")
         context.user_data['step'] = 'get_date'
 
     elif query.data.startswith("time_"):
@@ -77,7 +76,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         date = context.user_data['date']
         user_id = query.from_user.id
 
-        # Парсимо ПІБ і телефон
         try:
             name, phone = [s.strip() for s in fullinfo.split(',', 1)]
         except Exception:
@@ -85,8 +83,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-        c.execute("INSERT INTO bookings (user_id, name, phone, procedure, date, time) VALUES (?, ?, ?, ?, ?, ?)",
-                  (user_id, name, phone, procedure, date, time))
+        c.execute(
+            "INSERT INTO bookings (user_id, name, phone, procedure, date, time) VALUES (?, ?, ?, ?, ?, ?)",
+            (user_id, name, phone, procedure, date, time)
+        )
         conn.commit()
         conn.close()
 
@@ -101,7 +101,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
-        # Адміну повідомлення
         await context.bot.send_message(
             chat_id=ADMIN_ID,
             text=f"""📥 Новий запис:
@@ -110,7 +109,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 Дата: {date} о {time}"""
         )
 
-        # Плануємо нагадування за добу о 10:00 ранку
         event_time = datetime.strptime(f"{date} {time}", "%d.%m %H:%M")
         remind_day = event_time - timedelta(days=1)
         remind_time = remind_day.replace(hour=10, minute=0, second=0, microsecond=0)
@@ -132,7 +130,9 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if user_step == 'get_date':
         context.user_data['date'] = text
-        await update.message.reply_text("Введіть ПІБ та номер телефону через кому (наприклад: Іваненко Марія, 0931234567):")
+        await update.message.reply_text(
+            "Введіть ПІБ та номер телефону через кому (наприклад: Іваненко Марія, 0931234567):"
+        )
         context.user_data['step'] = 'get_fullinfo'
 
     elif user_step == 'get_fullinfo':
@@ -142,7 +142,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton(time, callback_data=f"time_{time}")]
             for time in times
         ]
-        await update.message.reply_text(
+        await update. message. reply_text(
             "Оберіть час:",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
@@ -152,13 +152,14 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         phone = text.strip()
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-        c.execute("SELECT name, procedure, date, time FROM bookings WHERE phone LIKE ?", (f"%{phone}%",))
+        c.execute(
+            "SELECT name, procedure, date, time FROM bookings WHERE phone LIKE ?", 
+            (f"%{phone}%",)
+        )
         rows = c.fetchall()
         conn.close()
         if rows:
-            reply = "Ваші записи:
-" + "
-".join(
+            reply = "Ваші записи:\n" + "\n".join(
                 [f"{name}, {procedure}, {date} о {time}" for name, procedure, date, time in rows]
             )
         else:
