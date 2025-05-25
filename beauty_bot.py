@@ -47,6 +47,7 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     c.execute("SELECT name, phone, procedure, date, time FROM bookings ORDER BY id DESC")
     rows = c.fetchall()
     conn.close()
+
     if rows:
         lines = [f"{name}, {phone}, {procedure}, {date} о {time}" for name, phone, procedure, date, time in rows]
         reply_text = "📋 Усі записи:
@@ -54,6 +55,7 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 ".join(lines)
     else:
         reply_text = "Записів не знайдено."
+
     await update.message.reply_text(reply_text)
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -100,7 +102,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
         c.execute(
-            "INSERT INTO bookings(user_id, name, phone, procedure, date, time) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO bookings (user_id, name, phone, procedure, date, time) VALUES (?, ?, ?, ?, ?, ?)",
             (user_id, name, phone, procedure, date, time_str)
         )
         conn.commit()
@@ -139,9 +141,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if step == 'get_date':
         context.user_data['date'] = text.strip()
-        await update.message.reply_text(
-            "Введіть ПІБ та номер телефону через кому (наприклад: Іваненко Марія, 0931234567):"
-        )
+        await update.message.reply_text("Введіть ПІБ та номер телефону через кому (наприклад: Іваненко Марія, 0931234567):")
         context.user_data['step'] = 'get_fullinfo'
 
     elif step == 'get_fullinfo':
@@ -155,10 +155,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         phone = text.strip()
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-        c.execute(
-            "SELECT name, procedure, date, time FROM bookings WHERE phone LIKE ?",
-            (f"%{phone}%",)
-        )
+        c.execute("SELECT name, procedure, date, time FROM bookings WHERE phone LIKE ?", (f"%{phone}%",))
         rows = c.fetchall()
         conn.close()
         if rows:
@@ -170,6 +167,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_text = "Записів не знайдено."
         await update.message.reply_text(reply_text)
         context.user_data['step'] = None
+
     else:
         await update.message.reply_text("Оберіть дію за допомогою кнопок /start")
 
