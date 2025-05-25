@@ -42,24 +42,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Привіт! Оберіть дію:", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Команда для адміністратора, показує всі записи
     user_id = update.message.from_user.id
     if user_id != ADMIN_ID:
         await update.message.reply_text("У вас немає доступу до цієї команди.")
         return
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-    c.execute(
-        "SELECT name, phone, procedure, date, time FROM bookings ORDER BY id DESC"
-    )
+    c.execute("SELECT name, phone, procedure, date, time FROM bookings ORDER BY id DESC")
     rows = c.fetchall()
     conn.close()
     if rows:
+        entries = [f"{name}, {phone}, {procedure}, {date} о {time}" for name, phone, procedure, date, time in rows]
         reply = "📋 Усі записи:
 " + "
-".join(
-            [f"{name}, {phone}, {procedure}, {date} о {time}" for name, phone, procedure, date, time in rows]
-        )
+".join(entries)
     else:
         reply = "Записів не знайдено."
     await update.message.reply_text(reply)
@@ -101,7 +97,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         try:
             name, phone = [s.strip() for s in fullinfo.split(',', 1)]
-        except Exception:
+        except ValueError:
             name, phone = fullinfo.strip(), "N/A"
 
         conn = sqlite3.connect('appointments.db')
@@ -126,10 +122,15 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await context.bot.send_message(
             chat_id=ADMIN_ID,
-            text=f"📥 Новий запис:
-ПІБ/Телефон: {name} / {phone}
-Процедура: {procedure}
-Дата: {date} о {time}"
+            text=(
+                f"📥 Новий запис:
+"
+                f"ПІБ/Телефон: {name} / {phone}
+"
+                f"Процедура: {procedure}
+"
+                f"Дата: {date} о {time}"
+            )
         )
 
         event_time = datetime.strptime(f"{date} {time}", "%d.%m %H:%M")
