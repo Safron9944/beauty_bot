@@ -1,5 +1,5 @@
-python-telegram-bot==20.7
+python-telegram-bot[webhooks]
 python-dotenv
+apscheduler
 gspread
 oauth2client
-apscheduler
