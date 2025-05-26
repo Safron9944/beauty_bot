@@ -1,1 +1,0 @@
-start: python beauty_bot.py
