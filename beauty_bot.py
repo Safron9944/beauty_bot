@@ -56,23 +56,26 @@ def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-    c.execute("SELECT name, phone, procedure, date, time FROM bookings ORDER BY id DESC")
+    c.execute("SELECT id, name, phone, procedure, date, time FROM bookings ORDER BY id DESC")
     rows = c.fetchall()
     conn.close()
 
     if rows:
-        lines = [
-            f"{name}, {phone}, {procedure}, {date} о {time}"
-            for name, phone, procedure, date, time in rows
-        ]
-        # Single-line literal with newline escape
-        reply_text = "📋 Усі записи:
-" + "
-".join(lines)
+        for row in rows:
+            booking_id, name, phone, procedure, date, time = row
+            msg = (
+                f"ID: {booking_id}\n"
+                f"ПІБ: {name}\n"
+                f"Телефон: {phone}\n"
+                f"Процедура: {procedure}\n"
+                f"Дата: {date} о {time}"
+            )
+            keyboard = [
+                [InlineKeyboardButton("✏️ Редагувати", callback_data=f'edit_{booking_id}')]
+            ]
+            update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(keyboard))
     else:
-        reply_text = "Записів не знайдено."
-
-    update.message.reply_text(reply_text)
+        update.message.reply_text("Записів не знайдено.")
 
 def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle all callback queries from inline buttons."""
@@ -141,10 +144,7 @@ def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Notify admin
         query.bot.send_message(
             chat_id=ADMIN_ID,
-            text=f"📥 Новий запис:
-ПІБ/Телефон: {name} / {phone}
-Процедура: {procedure}
-Дата: {date} о {time_str}"
+            text=f"📥 Новий запис:\nПІБ/Телефон: {name} / {phone}\nПроцедура: {procedure}\nДата: {date} о {time_str}"
         )
 
         # Schedule reminder
@@ -156,6 +156,30 @@ def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             scheduler.start()
 
         context.user_data.clear()
+
+    elif data.startswith('edit_'):
+        if update.effective_user.id != ADMIN_ID:
+            query.message.reply_text("У вас немає доступу.")
+            return
+
+        booking_id = int(data.split('_')[1])
+        context.user_data['edit_id'] = booking_id
+
+        # Запитати, що редагувати
+        keyboard = [
+            [InlineKeyboardButton("ПІБ", callback_data='editfield_name')],
+            [InlineKeyboardButton("Телефон", callback_data='editfield_phone')],
+            [InlineKeyboardButton("Процедуру", callback_data='editfield_procedure')],
+            [InlineKeyboardButton("Дату", callback_data='editfield_date')],
+            [InlineKeyboardButton("Час", callback_data='editfield_time')],
+        ]
+        query.message.reply_text("Що хочете змінити?", reply_markup=InlineKeyboardMarkup(keyboard))
+
+    elif data.startswith('editfield_'):
+        field = data.split('_')[1]
+        context.user_data['edit_field'] = field
+        query.message.reply_text("Введіть нове значення:")
+        context.user_data['step'] = 'edit_value'
 
 def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle plain text messages for steps."""
@@ -188,12 +212,31 @@ def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn.close()
         if rows:
             lines = [f"{n}, {p}, {d} о {t}" for n, p, d, t in rows]
-            reply_text = "Ваші записи:
-" + "
-".join(lines)
+            reply_text = "Ваші записи:\n" + "\n".join(lines)
         else:
             reply_text = "Записів не знайдено."
         update.message.reply_text(reply_text)
+
+    elif step == 'edit_value':
+        booking_id = context.user_data.get('edit_id')
+        field = context.user_data.get('edit_field')
+        new_value = text
+
+        if field not in ['name', 'phone', 'procedure', 'date', 'time']:
+            update.message.reply_text("Невірне поле для редагування.")
+            return
+
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute(f"UPDATE bookings SET {field}=? WHERE id=?", (new_value, booking_id))
+        conn.commit()
+        conn.close()
+
+        update.message.reply_text(f"{field} оновлено!")
+        context.user_data['step'] = None
+        context.user_data['edit_id'] = None
+        context.user_data['edit_field'] = None
+
     else:
         update.message.reply_text("Оберіть дію за допомогою кнопок /start")
 
