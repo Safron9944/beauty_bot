@@ -1,13 +1,14 @@
 from dotenv import load_dotenv
 import os
 import sqlite3
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand, BotCommandScopeDefault, BotCommandScopeChat
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes,
     MessageHandler, filters
 )
 from datetime import datetime, timedelta
 import logging
+import asyncio
 
 # Завантаження змінних середовища
 load_dotenv()
@@ -41,6 +42,26 @@ def init_db():
     conn.commit()
     conn.close()
 
+def create_default_schedule():
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) FROM schedules")
+    count = c.fetchone()[0]
+    if count == 0:
+        today = datetime.now()
+        for i in range(7):  # на тиждень вперед
+            day = today + timedelta(days=i)
+            weekday = day.weekday()  # 0=Пн ... 6=Нд
+            date_str = day.strftime('%d.%m')
+            if weekday < 5:  # Пн–Пт
+                times = [f"{h:02d}:00" for h in range(14, 19)]
+            else:  # Сб–Нд
+                times = [f"{h:02d}:00" for h in range(11, 19)]
+            for t in times:
+                c.execute("INSERT INTO schedules (date, time, booked) VALUES (?, ?, 0)", (date_str, t))
+        conn.commit()
+    conn.close()
+
 # /start команда
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [[InlineKeyboardButton("📅 Записатися", callback_data='choose_date')]]
@@ -56,34 +77,41 @@ async def set_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE):
 28.05: 10:00, 11:00""")
     context.user_data['step'] = 'set_schedule'
 
-# Команда для автоматичного створення графіка на 7 днів наперед
-async def auto_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID:
-        await update.message.reply_text("⛔️ У вас немає доступу до цієї команди.")
-        return
-
-    today = datetime.today()
+# /mybookings команда для користувача
+async def mybookings(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-
-    for i in range(7):  # 7 днів наперед, включаючи сьогодні
-        day = today + timedelta(days=i)
-        date_str = day.strftime('%d.%m')
-        weekday = day.weekday()
-        if weekday < 5:
-            # Будні (Пн-Пт): з 14:00 до 18:00
-            times = [f"{h}:00" for h in range(14, 19)]
-        else:
-            # Вихідні (Сб-Нд): з 11:00 до 18:00
-            times = [f"{h}:00" for h in range(11, 19)]
-
-        # Очистити попередній графік для цієї дати
-        c.execute("DELETE FROM schedules WHERE date = ?", (date_str,))
-        for t in times:
-            c.execute("INSERT INTO schedules (date, time, booked) VALUES (?, ?, 0)", (date_str, t))
-    conn.commit()
+    today = datetime.now().strftime('%d.%m')
+    c.execute("""
+        SELECT date, time, procedure, name 
+        FROM bookings 
+        WHERE user_id = ? AND (date > ? OR date = ?)
+        ORDER BY date, time
+    """, (user_id, today, today))
+    bookings = c.fetchall()
     conn.close()
-    await update.message.reply_text("✅ Графік на 7 днів наперед автоматично оновлено (будні з 14:00, вихідні з 11:00).")
+    if not bookings:
+        await update.message.reply_text("У вас немає записів.")
+    else:
+        text = "Ваші майбутні записи:\n"
+        for b in bookings:
+            text += f"{b[0]} о {b[1]} — {b[2]} (ім'я: {b[3]})\n"
+        await update.message.reply_text(text)
+
+# Встановлення команд для користувачів і адміна
+async def set_commands(application):
+    default_commands = [
+        BotCommand("start", "Головне меню"),
+        BotCommand("mybookings", "Мої записи"),
+    ]
+    admin_commands = [
+        BotCommand("start", "Головне меню"),
+        BotCommand("set_schedule", "Додати або змінити графік роботи"),
+        BotCommand("mybookings", "Мої записи"),
+    ]
+    await application.bot.set_my_commands(default_commands, scope=BotCommandScopeDefault())
+    await application.bot.set_my_commands(admin_commands, scope=BotCommandScopeChat(chat_id=ADMIN_ID))
 
 # Обробка введення графіка
 async def handle_schedule_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -100,7 +128,6 @@ async def handle_schedule_input(update: Update, context: ContextTypes.DEFAULT_TY
             date_part, times_part = line.split(':')
             date = date_part.strip()
             times = [t.strip() for t in times_part.split(',')]
-            # Оновлюємо графік лише для цієї дати
             c.execute("DELETE FROM schedules WHERE date = ?", (date,))
             for t in times:
                 c.execute("INSERT INTO schedules (date, time, booked) VALUES (?, ?, 0)", (date, t))
@@ -177,19 +204,27 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"✅ Вас записано на {date} о {time}. Дякуємо, {name}!")
         context.user_data.clear()
 
-# Головна функція
 def main():
     init_db()
+    create_default_schedule()
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("set_schedule", set_schedule))
-    app.add_handler(CommandHandler("auto_schedule", auto_schedule))  # Додаємо автографік
+    app.add_handler(CommandHandler("mybookings", mybookings))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_schedule_input))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
 
-    app.run_polling()
+    # Встановлюємо команди для всіх та для адміна
+    asyncio.run(set_commands(app))
+
+    PORT = int(os.environ.get("PORT", 8443))
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        webhook_url=f"https://{os.environ.get('RAILWAY_STATIC_URL', 'your-app-name.up.railway.app')}/{TOKEN}"
+    )
 
 if __name__ == "__main__":
     main()
