@@ -37,21 +37,19 @@ CREATE TABLE IF NOT EXISTS bookings (
     conn.commit()
     conn.close()
 
-def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle the /start command."""
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("📝 Записатися на процедури", callback_data='book')],
         [InlineKeyboardButton("📅 Перевірити мій запис", callback_data='check_booking')]
     ]
-    update.message.reply_text(
+    await update.message.reply_text(
         "Привіт! Оберіть дію:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle the /admin command for administrators."""
+async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
-        update.message.reply_text("У вас немає доступу до цієї команди.")
+        await update.message.reply_text("У вас немає доступу до цієї команди.")
         return
 
     conn = sqlite3.connect('appointments.db')
@@ -73,14 +71,13 @@ def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
             keyboard = [
                 [InlineKeyboardButton("✏️ Редагувати", callback_data=f'edit_{booking_id}')]
             ]
-            update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(keyboard))
+            await update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(keyboard))
     else:
-        update.message.reply_text("Записів не знайдено.")
+        await update.message.reply_text("Записів не знайдено.")
 
-def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle all callback queries from inline buttons."""
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    query.answer()
+    await query.answer()
     data = query.data
 
     if data == 'book':
@@ -90,10 +87,10 @@ def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("Ламінування брів", callback_data='proc_lam_brows')],
             [InlineKeyboardButton("Ламінування вій", callback_data='proc_lam_lashes')]
         ]
-        query.message.reply_text("Оберіть процедуру:", reply_markup=InlineKeyboardMarkup(keyboard))
+        await query.message.reply_text("Оберіть процедуру:", reply_markup=InlineKeyboardMarkup(keyboard))
 
     elif data == 'check_booking':
-        query.message.reply_text("Введіть ваш номер телефону (тільки цифри):")
+        await query.message.reply_text("Введіть ваш номер телефону (тільки цифри):")
         context.user_data['step'] = 'check_phone'
 
     elif data.startswith('proc_'):
@@ -104,7 +101,7 @@ def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'proc_lam_lashes': 'Ламінування вій'
         }
         context.user_data['procedure'] = proc_map[data]
-        query.message.reply_text("Введіть дату у форматі ДД.MM:")
+        await query.message.reply_text("Введіть дату у форматі ДД.MM:")
         context.user_data['step'] = 'get_date'
 
     elif data.startswith('time_'):
@@ -136,13 +133,13 @@ def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("📝 Записатися на процедури", callback_data='book')],
             [InlineKeyboardButton("📅 Перевірити мій запис", callback_data='check_booking')]
         ]
-        query.message.reply_text(
+        await query.message.reply_text(
             f"✅ Вас записано на {procedure} {date} о {time_str}. Дякуємо, {name}!",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
         # Notify admin
-        query.bot.send_message(
+        await query.bot.send_message(
             chat_id=ADMIN_ID,
             text=f"📥 Новий запис:\nПІБ/Телефон: {name} / {phone}\nПроцедура: {procedure}\nДата: {date} о {time_str}"
         )
@@ -159,7 +156,7 @@ def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif data.startswith('edit_'):
         if update.effective_user.id != ADMIN_ID:
-            query.message.reply_text("У вас немає доступу.")
+            await query.message.reply_text("У вас немає доступу.")
             return
 
         booking_id = int(data.split('_')[1])
@@ -173,22 +170,21 @@ def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("Дату", callback_data='editfield_date')],
             [InlineKeyboardButton("Час", callback_data='editfield_time')],
         ]
-        query.message.reply_text("Що хочете змінити?", reply_markup=InlineKeyboardMarkup(keyboard))
+        await query.message.reply_text("Що хочете змінити?", reply_markup=InlineKeyboardMarkup(keyboard))
 
     elif data.startswith('editfield_'):
         field = data.split('_')[1]
         context.user_data['edit_field'] = field
-        query.message.reply_text("Введіть нове значення:")
+        await query.message.reply_text("Введіть нове значення:")
         context.user_data['step'] = 'edit_value'
 
-def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle plain text messages for steps."""
+async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     step = context.user_data.get('step')
     text = update.message.text.strip()
 
     if step == 'get_date':
         context.user_data['date'] = text
-        update.message.reply_text(
+        await update.message.reply_text(
             "Введіть ПІБ та номер телефону через кому (наприклад: Іваненко Марія, 0931234567):"
         )
         context.user_data['step'] = 'get_fullinfo'
@@ -197,7 +193,7 @@ def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['fullinfo'] = text
         times = ['14:00', '15:00', '16:00', '17:00', '18:00']
         keyboard = [[InlineKeyboardButton(t, callback_data=f"time_{t}")] for t in times]
-        update.message.reply_text("Оберіть час:", reply_markup=InlineKeyboardMarkup(keyboard))
+        await update.message.reply_text("Оберіть час:", reply_markup=InlineKeyboardMarkup(keyboard))
         context.user_data['step'] = None
 
     elif step == 'check_phone':
@@ -215,7 +211,7 @@ def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_text = "Ваші записи:\n" + "\n".join(lines)
         else:
             reply_text = "Записів не знайдено."
-        update.message.reply_text(reply_text)
+        await update.message.reply_text(reply_text)
 
     elif step == 'edit_value':
         booking_id = context.user_data.get('edit_id')
@@ -223,7 +219,7 @@ def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         new_value = text
 
         if field not in ['name', 'phone', 'procedure', 'date', 'time']:
-            update.message.reply_text("Невірне поле для редагування.")
+            await update.message.reply_text("Невірне поле для редагування.")
             return
 
         conn = sqlite3.connect('appointments.db')
@@ -232,13 +228,13 @@ def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn.commit()
         conn.close()
 
-        update.message.reply_text(f"{field} оновлено!")
+        await update.message.reply_text(f"{field} оновлено!")
         context.user_data['step'] = None
         context.user_data['edit_id'] = None
         context.user_data['edit_field'] = None
 
     else:
-        update.message.reply_text("Оберіть дію за допомогою кнопок /start")
+        await update.message.reply_text("Оберіть дію за допомогою кнопок /start")
 
 def send_reminder(user_id, procedure, date, time):
     """Send reminder message one day before."""
