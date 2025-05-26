@@ -250,7 +250,11 @@ def main():
     app.add_handler(CommandHandler("admin", admin))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
-    app.run_polling()
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=int(os.environ.get("PORT", 8443)),
+        webhook_url="https://motivated-truth-production.up.railway.app/7823985284:AAF4CmbqX60YuS-qd3yPsoDtS-PePqhIhvQ"
+    )
 
 if __name__ == '__main__':
     main()
