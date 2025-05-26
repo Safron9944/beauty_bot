@@ -8,7 +8,6 @@ from telegram.ext import (
 )
 from datetime import datetime, timedelta
 import logging
-import asyncio
 
 # Завантаження змінних середовища
 load_dotenv()
@@ -62,8 +61,25 @@ def create_default_schedule():
         conn.commit()
     conn.close()
 
+# Встановлення команд для користувачів і адміна
+async def set_commands(application):
+    default_commands = [
+        BotCommand("start", "Головне меню"),
+        BotCommand("mybookings", "Мої записи"),
+    ]
+    admin_commands = [
+        BotCommand("start", "Головне меню"),
+        BotCommand("set_schedule", "Додати або змінити графік роботи"),
+        BotCommand("mybookings", "Мої записи"),
+    ]
+    await application.bot.set_my_commands(default_commands, scope=BotCommandScopeDefault())
+    await application.bot.set_my_commands(admin_commands, scope=BotCommandScopeChat(chat_id=ADMIN_ID))
+
 # /start команда
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # ОНОВЛЕННЯ КОМАНД: ТІЛЬКИ ДЛЯ АДМІНА
+    if update.effective_user.id == ADMIN_ID:
+        await set_commands(context.application)
     keyboard = [[InlineKeyboardButton("📅 Записатися", callback_data='choose_date')]]
     await update.message.reply_text("Привіт! Оберіть дію:", reply_markup=InlineKeyboardMarkup(keyboard))
 
@@ -98,20 +114,6 @@ async def mybookings(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for b in bookings:
             text += f"{b[0]} о {b[1]} — {b[2]} (ім'я: {b[3]})\n"
         await update.message.reply_text(text)
-
-# Встановлення команд для користувачів і адміна
-async def set_commands(application):
-    default_commands = [
-        BotCommand("start", "Головне меню"),
-        BotCommand("mybookings", "Мої записи"),
-    ]
-    admin_commands = [
-        BotCommand("start", "Головне меню"),
-        BotCommand("set_schedule", "Додати або змінити графік роботи"),
-        BotCommand("mybookings", "Мої записи"),
-    ]
-    await application.bot.set_my_commands(default_commands, scope=BotCommandScopeDefault())
-    await application.bot.set_my_commands(admin_commands, scope=BotCommandScopeChat(chat_id=ADMIN_ID))
 
 # Обробка введення графіка
 async def handle_schedule_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -215,9 +217,6 @@ def main():
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_schedule_input))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
-
-    # Встановлюємо команди для всіх та для адміна
-    asyncio.run(set_commands(app))
 
     PORT = int(os.environ.get("PORT", 8443))
     app.run_webhook(
