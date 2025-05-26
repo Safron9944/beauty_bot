@@ -1,1 +1,1 @@
-start: python beauty_bot.py
+web: python beauty_bot.py
