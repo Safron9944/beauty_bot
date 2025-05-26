@@ -6,7 +6,7 @@ from telegram.ext import (
     ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes,
     MessageHandler, filters
 )
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 
 # Завантаження змінних середовища
@@ -55,6 +55,35 @@ async def set_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE):
 27.05: 14:00, 15:00
 28.05: 10:00, 11:00""")
     context.user_data['step'] = 'set_schedule'
+
+# Команда для автоматичного створення графіка на 7 днів наперед
+async def auto_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        await update.message.reply_text("⛔️ У вас немає доступу до цієї команди.")
+        return
+
+    today = datetime.today()
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+
+    for i in range(7):  # 7 днів наперед, включаючи сьогодні
+        day = today + timedelta(days=i)
+        date_str = day.strftime('%d.%m')
+        weekday = day.weekday()
+        if weekday < 5:
+            # Будні (Пн-Пт): з 14:00 до 18:00
+            times = [f"{h}:00" for h in range(14, 19)]
+        else:
+            # Вихідні (Сб-Нд): з 11:00 до 18:00
+            times = [f"{h}:00" for h in range(11, 19)]
+
+        # Очистити попередній графік для цієї дати
+        c.execute("DELETE FROM schedules WHERE date = ?", (date_str,))
+        for t in times:
+            c.execute("INSERT INTO schedules (date, time, booked) VALUES (?, ?, 0)", (date_str, t))
+    conn.commit()
+    conn.close()
+    await update.message.reply_text("✅ Графік на 7 днів наперед автоматично оновлено (будні з 14:00, вихідні з 11:00).")
 
 # Обробка введення графіка
 async def handle_schedule_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -155,6 +184,7 @@ def main():
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("set_schedule", set_schedule))
+    app.add_handler(CommandHandler("auto_schedule", auto_schedule))  # Додаємо автографік
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_schedule_input))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
