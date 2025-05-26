@@ -1,7 +1,6 @@
 import os
 from telegram import (
-    Update, ReplyKeyboardMarkup, KeyboardButton,
-    ReplyKeyboardRemove
+    Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 )
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler, filters, ConversationHandler, ContextTypes
@@ -10,12 +9,12 @@ from google_sheets import add_to_google_sheet
 import re
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
+ADMIN_CHAT_ID = 1035792183  # ← твій ID
 
-# Стадії діалогу
 (
-    MENU, CHOOSE_PROCEDURE, INPUT_DATE, INPUT_CONTACT, CONFIRM_BOOKING,
-    CHECK_MY_BOOKINGS, DONE
-) = range(7)
+    MENU, CHOOSE_PROCEDURE, INPUT_DATE, INPUT_CONTACT, CHOOSE_TIME,
+    CHECK_MY_BOOKINGS
+) = range(6)
 
 PROCEDURES = [
     "Корекція брів",
@@ -23,6 +22,8 @@ PROCEDURES = [
     "Ламінування брів",
     "Ламінування вій"
 ]
+
+TIME_OPTIONS = ["14:00", "15:00", "16:00", "17:00"]
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_keyboard = [
@@ -61,7 +62,7 @@ async def choose_procedure(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return CHOOSE_PROCEDURE
     context.user_data["procedure"] = procedure
     await update.message.reply_text(
-        "Введіть дату у форматі ДД.MM (наприклад: 28.05):",
+        "Введіть дату у форматі ДД.ММ (наприклад: 28.05):",
         reply_markup=ReplyKeyboardRemove()
     )
     return INPUT_DATE
@@ -86,33 +87,57 @@ async def input_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name, phone = match.groups()
     context.user_data["name"] = name.strip()
     context.user_data["phone"] = phone.strip()
+    reply_keyboard = [[t] for t in TIME_OPTIONS]
+    await update.message.reply_text(
+        "Оберіть час:",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True)
+    )
+    return CHOOSE_TIME
+
+async def choose_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    time = update.message.text
+    if time not in TIME_OPTIONS:
+        await update.message.reply_text("Оберіть час із кнопок:")
+        return CHOOSE_TIME
+    context.user_data["time"] = time
     # Запис у Google Sheets
     add_to_google_sheet(
         name=context.user_data["name"],
-        surname="", # якщо треба виділити, можу розбити name
+        surname="",  # Можеш виділити прізвище, якщо треба
         phone=context.user_data["phone"],
         procedure=context.user_data["procedure"],
         date=context.user_data["date"],
-        time="", # якщо хочеш ще й час, треба додати окреме питання
+        time=context.user_data["time"],
     )
+    # Надсилання сповіщення адміну
+    admin_message = (
+        "Новий запис!\n"
+        f"Процедура: {context.user_data['procedure']}\n"
+        f"Дата: {context.user_data['date']}\n"
+        f"Час: {context.user_data['time']}\n"
+        f"Клієнт: {context.user_data['name']}\n"
+        f"Телефон: {context.user_data['phone']}"
+    )
+    try:
+        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=admin_message)
+    except Exception as e:
+        print(f"Помилка надсилання адміну: {e}")
+
     await update.message.reply_text(
-        f"Вас записано на {context.user_data['procedure']} ({context.user_data['date']}). Дякуємо!",
+        f"Вас записано на {context.user_data['procedure']} ({context.user_data['date']} о {context.user_data['time']}). Дякуємо!",
         reply_markup=ReplyKeyboardMarkup([
             ["📋 Записатися на процедуру", "📅 Перевірити мій запис"]
         ], resize_keyboard=True)
     )
     return MENU
 
-# Заглушка — приклад для "перевірити мій запис"
+# Заглушка — перевірка записів
 async def check_my_bookings(update: Update, context: ContextTypes.DEFAULT_TYPE):
     phone = update.message.text.strip()
-    # Тут треба реалізувати отримання із Google Sheets за номером телефону
-    # Напишу псевдо, бо немає функції у твоєму google_sheets.py
-    # bookings = get_bookings_by_phone(phone)
-    bookings = []  # <-- реалізуй цю функцію сам або дай доступ до таблиці — напишу!
+    bookings = []  # Реалізуй цю функцію в google_sheets.py
     if bookings:
         text = "\n".join([
-            f"{b['procedure']} ({b['date']})"
+            f"{b['procedure']} {b['date']} {b['time']}"
             for b in bookings
         ])
     else:
@@ -135,6 +160,7 @@ def main():
             CHOOSE_PROCEDURE: [MessageHandler(filters.TEXT & ~filters.COMMAND, choose_procedure)],
             INPUT_DATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, input_date)],
             INPUT_CONTACT: [MessageHandler(filters.TEXT & ~filters.COMMAND, input_contact)],
+            CHOOSE_TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, choose_time)],
             CHECK_MY_BOOKINGS: [MessageHandler(filters.TEXT & ~filters.COMMAND, check_my_bookings)],
         },
         fallbacks=[CommandHandler("start", start)],
