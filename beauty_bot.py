@@ -1,23 +1,25 @@
-
 from dotenv import load_dotenv
 import os
-
-load_dotenv()
-TOKEN = os.getenv('TELEGRAM_TOKEN')
-
 import sqlite3
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes,
-    MessageHandler, filters
+    MessageHandler, filters, ConversationHandler
 )
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime, timedelta
 from google_sheets import add_to_google_sheet
 
+# Завантаження .env
+load_dotenv()
+TOKEN = os.getenv('TELEGRAM_TOKEN')
 ADMIN_ID = int(os.environ["ADMIN_ID"])
 scheduler = BackgroundScheduler()
 
+# Етапи для редагування
+EDIT_DATE, EDIT_TIME = range(2)
+
+# Ініціалізація бази
 def init_db():
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
@@ -35,6 +37,7 @@ def init_db():
     conn.commit()
     conn.close()
 
+# /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("📝 Записатися на процедури", callback_data='book')],
@@ -42,6 +45,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     await update.message.reply_text("Привіт! Оберіть дію:", reply_markup=InlineKeyboardMarkup(keyboard))
 
+# Кнопки користувача
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -77,7 +81,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         date = context.user_data['date']
         user_id = query.from_user.id
 
-        # Парсимо ПІБ і телефон
         try:
             name, phone = [s.strip() for s in fullinfo.split(',', 1)]
         except Exception:
@@ -101,16 +104,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
-        # Адміну повідомлення
         await context.bot.send_message(
             chat_id=ADMIN_ID,
-            text=f"""📥 Новий запис:
-ПІБ/Телефон: {name} / {phone}
-Процедура: {procedure}
-Дата: {date} о {time}"""
+            text=f"📥 Новий запис:\n{name} / {phone}\n{procedure} — {date} о {time}"
         )
 
-        # Плануємо нагадування за добу о 10:00 ранку
         event_time = datetime.strptime(f"{date} {time}", "%d.%m %H:%M")
         remind_day = event_time - timedelta(days=1)
         remind_time = remind_day.replace(hour=10, minute=0, second=0, microsecond=0)
@@ -126,6 +124,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         context.user_data.clear()
 
+# Обробка тексту
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_step = context.user_data.get('step')
     text = update.message.text
@@ -138,14 +137,8 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_step == 'get_fullinfo':
         context.user_data['fullinfo'] = text
         times = ['14:00', '15:00', '16:00', '17:00', '18:00']
-        keyboard = [
-            [InlineKeyboardButton(time, callback_data=f"time_{time}")]
-            for time in times
-        ]
-        await update.message.reply_text(
-            "Оберіть час:",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        keyboard = [[InlineKeyboardButton(time, callback_data=f"time_{time}")] for time in times]
+        await update.message.reply_text("Оберіть час:", reply_markup=InlineKeyboardMarkup(keyboard))
         context.user_data['step'] = None
 
     elif user_step == 'check_phone':
@@ -156,9 +149,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         rows = c.fetchall()
         conn.close()
         if rows:
-            reply = "Ваші записи:
-" + "
-".join(
+            reply = "Ваші записи:\n" + "\n".join(
                 [f"{name}, {procedure}, {date} о {time}" for name, procedure, date, time in rows]
             )
         else:
@@ -169,6 +160,73 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Оберіть дію за допомогою кнопок /start")
 
+# Адмін-панель
+async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        await update.message.reply_text("⛔️ У вас немає прав.")
+        return
+
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+    c.execute("SELECT id, name, phone, procedure, date, time FROM bookings ORDER BY date, time")
+    rows = c.fetchall()
+    conn.close()
+
+    if not rows:
+        await update.message.reply_text("Записів немає.")
+        return
+
+    for row in rows:
+        record_id, name, phone, proc, date, time = row
+        text = f"{record_id}. {name}, {proc}, {date} о {time} ({phone})"
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("✏ Редагувати", callback_data=f"edit_{record_id}"),
+             InlineKeyboardButton("🗑 Видалити", callback_data=f"delete_{record_id}")]
+        ])
+        await update.message.reply_text(text, reply_markup=keyboard)
+
+async def admin_button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    if update.effective_user.id != ADMIN_ID:
+        await query.message.reply_text("⛔️ У вас немає прав.")
+        return
+
+    if query.data.startswith("delete_"):
+        record_id = int(query.data.replace("delete_", ""))
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("DELETE FROM bookings WHERE id = ?", (record_id,))
+        conn.commit()
+        conn.close()
+        await query.message.reply_text("✅ Запис видалено.")
+
+    elif query.data.startswith("edit_"):
+        context.user_data['edit_id'] = int(query.data.replace("edit_", ""))
+        await query.message.reply_text("Введіть нову дату (ДД.ММ):")
+        return EDIT_DATE
+
+    return ConversationHandler.END
+
+async def edit_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['new_date'] = update.message.text.strip()
+    await update.message.reply_text("Введіть новий час (наприклад: 16:00):")
+    return EDIT_TIME
+
+async def edit_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    new_time = update.message.text.strip()
+    record_id = context.user_data['edit_id']
+    new_date = context.user_data['new_date']
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+    c.execute("UPDATE bookings SET date = ?, time = ? WHERE id = ?", (new_date, new_time, record_id))
+    conn.commit()
+    conn.close()
+    await update.message.reply_text("✅ Запис оновлено.")
+    return ConversationHandler.END
+
+# Нагадування
 async def send_reminder(user_id, procedure, date, time):
     from telegram import Bot
     bot = Bot(token=TOKEN)
@@ -185,8 +243,20 @@ def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(button_handler))
+    app.add_handler(CommandHandler("admin", admin_panel))
+    app.add_handler(CallbackQueryHandler(button_handler, pattern="^(book|proc_|check_booking|time_)"))
+    app.add_handler(CallbackQueryHandler(admin_button_handler, pattern="^(edit_|delete_)"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
+
+    edit_conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(admin_button_handler, pattern="^edit_")],
+        states={
+            EDIT_DATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_date)],
+            EDIT_TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_time)],
+        },
+        fallbacks=[],
+    )
+    app.add_handler(edit_conv)
 
     app.run_polling()
 
