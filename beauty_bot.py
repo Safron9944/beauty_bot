@@ -135,7 +135,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }
         procedure = procedures.get(query.data, "Невідома процедура")
         context.user_data['procedure'] = procedure
-        # Показати вибір дати (7 днів наперед)
+        # Показати 7 наступних днів (усі дні тижня)
         today = datetime.now().date()
         dates = [(today + timedelta(days=i)).strftime("%d.%m") for i in range(7)]
         keyboard = [
@@ -144,24 +144,33 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         keyboard.append([InlineKeyboardButton("⬅️ Назад", callback_data="back_to_procedure")])
         await query.message.reply_text(
-            "🌸 Який день зробить тебе ще красивішою? Вибирай і натискай сердечко! Або повернись на крок назад, якщо захочеш змінити процедуру 💖",
+            "🌸 Обери зручний день для запису — працюємо за різним графіком у будні й вихідні!",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
         return
 
-    # --- Вибір дати ---
+    # --- Вибір часу в залежності від дня тижня ---
     if query.data.startswith("date_"):
         date = query.data.replace("date_", "")
         context.user_data["date"] = date
-        # Показати вибір часу (9:00–19:00 кожну годину)
-        times = [f"{h}:00" for h in range(9, 20)]
+
+        # Визначаємо тип дня
+        year = datetime.now().year
+        dt = datetime.strptime(f"{date}.{year}", "%d.%m.%Y")
+        weekday = dt.weekday()  # 0 = Пн ... 6 = Нд
+
+        if weekday < 5:  # Пн–Пт
+            times = [f"{h}:00" for h in range(14, 19)]  # 14:00–18:00
+        else:  # Сб–Нд
+            times = [f"{h}:00" for h in range(11, 17)]  # 11:00–16:00
+
         keyboard = [
             [InlineKeyboardButton(time, callback_data=f"time_{time}")]
             for time in times
         ]
         keyboard.append([InlineKeyboardButton("⬅️ Назад", callback_data="back_to_procedure")])
         await query.message.reply_text(
-            "👑 Обери свій зірковий час! Всі годинки чекають саме тебе 💖 Або ⬅️ Назад, щоб змінити день",
+            "👑 Обери свій зірковий час! Графік залежить від дня тижня 💖",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
         return
