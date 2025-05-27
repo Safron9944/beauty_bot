@@ -10,7 +10,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes,
     MessageHandler, filters
-)
+# [Зайва дужка видалена]
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime, timedelta
 
@@ -34,7 +34,7 @@ def init_db():
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
     (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-    )
+# [Зайва дужка видалена]
     booking_id = c.lastrowid
     conn.commit()
     conn.close()
@@ -44,7 +44,7 @@ def init_db():
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
     (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-    )
+# [Зайва дужка видалена]
     booking_id = c.lastrowid
     conn.commit()
     conn.close()
@@ -54,7 +54,7 @@ def init_db():
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
     (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-    )
+# [Зайва дужка видалена]
     booking_id = c.lastrowid
     conn.commit()
     conn.close()
@@ -84,7 +84,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "— знайти салон на мапі\n"
         "— глянути Instagram або написати майстру\n\n"
         "🌸 Краса починається тут!"
-    )
+# [Зайва дужка видалена]
     if hasattr(update, "message") and update.message:
         await update.message.reply_text(welcome, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
     else:
@@ -108,7 +108,7 @@ async def admin_service_handler(update: Update, context: ContextTypes.DEFAULT_TY
         "⚙️ *Адмін-сервіс*\n\n"
         "Керуйте розкладом, дивіться всі записи і тримайте красу під контролем 👑\n"
         "Обирайте дію:"
-    )
+# [Зайва дужка видалена]
     await query.edit_message_text(text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
 
 # --- РЕДАГУВАННЯ ГРАФІКУ (АДМІН) ---
@@ -122,7 +122,7 @@ async def edit_schedule_handler(update: Update, context: ContextTypes.DEFAULT_TY
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
+# [Зайва дужка видалена]
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
@@ -145,8 +145,7 @@ async def edit_schedule_handler(update: Update, context: ContextTypes.DEFAULT_TY
         "— Дні з ✅ — вже мають графік, ➕ — можна додати\n"
         "— Зміни/додай години через коми (після вибору дня)\n",
         reply_markup=InlineKeyboardMarkup(keyboard)
-    )
-
+# [Зайва дужка видалена]
 async def edit_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     day = query.data.replace('edit_day_', '')
@@ -155,7 +154,7 @@ async def edit_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
+# [Зайва дужка видалена]
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
@@ -169,11 +168,11 @@ async def edit_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🗓️ *{day}*\n"
         "Введіть години для цього дня через кому (наприклад: 10:00,11:30,12:00):\n"
         f"Поточний графік: {times if times else 'Немає'}"
-    )
+# [Зайва дужка видалена]
     await query.edit_message_text(
         text, parse_mode='Markdown',
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Дні", callback_data="edit_schedule")]])
-    )
+# [Зайва дужка видалена]
     context.user_data['step'] = 'edit_times'
 
 # --- ІНШІ АДМІН ФУНКЦІЇ ---
@@ -190,7 +189,7 @@ async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
+# [Зайва дужка видалена]
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
@@ -204,7 +203,7 @@ async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
+# [Зайва дужка видалена]
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
@@ -217,7 +216,7 @@ async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if not dates:
         await query.edit_message_text("🌺 Немає днів для видалення.",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Назад до адмін-сервісу", callback_data="admin_service")]])
-        )
+# [Зайва дужка видалена]
         return
     keyboard = [
         [InlineKeyboardButton(f"❌ {date}", callback_data=f"delday_{date}")] for date in dates
@@ -226,8 +225,7 @@ async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await query.edit_message_text(
         "🗑️ Обери день для видалення з розкладу:",
         reply_markup=InlineKeyboardMarkup(keyboard)
-    )
-
+# [Зайва дужка видалена]
 async def calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("⛔ Доступно тільки адміну.")
@@ -238,20 +236,20 @@ async def calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
+# [Зайва дужка видалена]
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
         visits = update_client_visits(user_id, name, phone)
         if visits >= 5:
             await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-    )
+# [Зайва дужка видалена]
     rows = c.fetchall()
     conn.close()
     if not rows:
         await update.callback_query.edit_message_text("Сьогодні записів немає 💤.",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")]])
-        )
+# [Зайва дужка видалена]
         return
     text = f"📅 Записи на {today.strftime('%d.%m.%Y')}:\n\n"
     for rec in rows:
@@ -260,11 +258,10 @@ async def calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🕒 {time} — {procedure}\n"
             f"👤 {name}, 📱 {phone}\n"
             f"Статус: {status}\n\n"
-        )
+# [Зайва дужка видалена]
     await update.callback_query.edit_message_text(text,
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")]])
-    )
-
+# [Зайва дужка видалена]
 async def week_calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("⛔ Доступно тільки адміну.")
@@ -276,20 +273,20 @@ async def week_calendar_handler(update: Update, context: ContextTypes.DEFAULT_TY
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
+# [Зайва дужка видалена]
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
         visits = update_client_visits(user_id, name, phone)
         if visits >= 5:
             await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-    )
+# [Зайва дужка видалена]
     rows = c.fetchall()
     conn.close()
     if not rows:
         await update.callback_query.edit_message_text("На цей тиждень записів немає 💤.",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")]])
-        )
+# [Зайва дужка видалена]
         return
     text = "📆 Записи на цей тиждень:\n\n"
     for rec in rows:
@@ -298,11 +295,10 @@ async def week_calendar_handler(update: Update, context: ContextTypes.DEFAULT_TY
             f"📅 {date} 🕒 {time} — {procedure}\n"
             f"👤 {name}, 📱 {phone}\n"
             f"Статус: {status}\n\n"
-        )
+# [Зайва дужка видалена]
     await update.callback_query.edit_message_text(text,
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")]])
-    )
-
+# [Зайва дужка видалена]
 # --- CALLBACK HANDLER ---
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -349,7 +345,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
+# [Зайва дужка видалена]
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
@@ -359,7 +355,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn.close()
         await query.edit_message_text(f"✅ День {date} видалено з графіка. Більше недоступний для запису!",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")]])
-        )
+# [Зайва дужка видалена]
         return
 
     # --- ДЛЯ КЛІЄНТА ---
@@ -377,7 +373,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Обіцяю, твоя краса засяє ще яскравіше! 🫶",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode="Markdown"
-        )
+# [Зайва дужка видалена]
         context.user_data.clear()
         return
 
@@ -396,7 +392,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
+# [Зайва дужка видалена]
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
@@ -420,7 +416,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🌸 Який день зробить тебе ще прекраснішою? Обирай сердечко на календарі!\n"
             "Передумала? Натискай ⬅️, і обери іншу процедуру! ✨💐",
             reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+# [Зайва дужка видалена]
         context.user_data['step'] = None
         return
 
@@ -432,7 +428,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
+# [Зайва дужка видалена]
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
@@ -453,7 +449,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
+# [Зайва дужка видалена]
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
@@ -474,7 +470,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "👑 Час бути зіркою! Обирай ідеальний час ❤️\n"
             "Хочеш змінити дату? Натискай ⬅️",
             reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+# [Зайва дужка видалена]
         context.user_data['step'] = None
         return
 
@@ -486,7 +482,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Залиш, будь ласка, *Ім'я, прізвище та номер телефону*, щоб я могла тобі написати або зателефонувати ✨\n\n"
             "_Наприклад: Марія Сафронюк, +380976853623_",
             parse_mode='Markdown'
-        )
+# [Зайва дужка видалена]
         context.user_data['step'] = 'get_fullinfo'
         return
 
@@ -497,7 +493,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
+# [Зайва дужка видалена]
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
@@ -528,7 +524,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
+# [Зайва дужка видалена]
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
@@ -548,7 +544,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(
             "🌸 Який день зробить тебе ще прекраснішою? Обирай сердечко на календарі й лови натхнення! Якщо раптом захочеш змінити процедуру — просто тисни ⬅️ і повертайся до вибору, бо твоя краса важлива! ✨💐",
             reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+# [Зайва дужка видалена]
         return
 
     if query.data == "master_phone":
@@ -556,7 +552,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"👩‍🎨 *Ваш майстер: {MASTER_NAME}*\n"
             f"☎️ Телефон: `{MASTER_PHONE}`\n"
             "Завжди рада допомогти — телефонуйте або пишіть у Viber/Telegram! 💬"
-        )
+# [Зайва дужка видалена]
         await query.edit_message_text(text, parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(
                 [
@@ -564,8 +560,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     [InlineKeyboardButton("📍 Геолокація", url=MASTER_GEO_LINK)],
                     [InlineKeyboardButton("⬅️ Головне меню", callback_data="back_to_menu")]
                 ]
-            )
-        )
+# [Зайва дужка видалена]
+# [Зайва дужка видалена]
         return
 
     if query.data.startswith('confirm_'):
@@ -575,7 +571,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
+# [Зайва дужка видалена]
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
@@ -585,7 +581,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
+# [Зайва дужка видалена]
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
@@ -597,7 +593,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             procedure, date, time = row
             await query.message.reply_text(
                 f"✅ Ваш запис на {procedure} {date} о {time} підтверджено! Я з нетерпінням чекаю на тебе! 💖"
-            )
+# [Зайва дужка видалена]
         return
 
     if query.data.startswith('cancel_'):
@@ -607,7 +603,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
+# [Зайва дужка видалена]
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
@@ -617,7 +613,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
+# [Зайва дужка видалена]
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
@@ -631,7 +627,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(
                 chat_id=ADMIN_ID,
                 text=f"❗️Клієнт {name} скасував запис: {procedure} {date} о {time}"
-            )
+# [Зайва дужка видалена]
         return
 
 # --- ВВЕДЕННЯ ТЕКСТУ ---
@@ -648,7 +644,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
+# [Зайва дужка видалена]
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
@@ -659,7 +655,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
+# [Зайва дужка видалена]
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
@@ -669,7 +665,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
+# [Зайва дужка видалена]
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
@@ -698,7 +694,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
+# [Зайва дужка видалена]
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
@@ -710,7 +706,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if visits >= 5:
             await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
+# [Зайва дужка видалена]
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
@@ -732,14 +728,14 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Якщо хочеш — підтверди чи відміні запис, або запишися ще раз 👑",
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+# [Зайва дужка видалена]
         await context.bot.send_message(
             chat_id=ADMIN_ID,
             text=f"""📥 Новий запис:
 ПІБ/Телефон: {name} / {phone}
 Процедура: {procedure}
 Дата: {date} о {time}"""
-        )
+# [Зайва дужка видалена]
         event_time = datetime.strptime(f"{date} {time}", "%d.%m %H:%M")
         remind_day = event_time - timedelta(days=1)
         remind_time = remind_day.replace(hour=10, minute=0, second=0, microsecond=0)
@@ -751,14 +747,14 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 'date',
                 run_date=remind_time,
                 args=[user_id, procedure, date, time, "day"]
-            )
+# [Зайва дужка видалена]
         if remind_2h > now:
             scheduler.add_job(
                 send_reminder,
                 'date',
                 run_date=remind_2h,
                 args=[user_id, procedure, date, time, "2h"]
-            )
+# [Зайва дужка видалена]
         scheduler.start()
         context.user_data.clear()
         return
@@ -780,7 +776,7 @@ async def send_reminder(user_id, procedure, date, time, mode="day"):
         await bot.send_message(
             chat_id=user_id,
             text=text
-        )
+# [Зайва дужка видалена]
     except Exception as e:
         print(f"Не вдалося надіслати нагадування: {e}")
 
@@ -810,7 +806,7 @@ def init_db():
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
     (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-    )
+# [Зайва дужка видалена]
     booking_id = c.lastrowid
     conn.commit()
     conn.close()
@@ -820,7 +816,7 @@ def init_db():
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
     (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-    )
+# [Зайва дужка видалена]
     booking_id = c.lastrowid
     conn.commit()
     conn.close()
@@ -830,7 +826,7 @@ def init_db():
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
     (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-    )
+# [Зайва дужка видалена]
     booking_id = c.lastrowid
     conn.commit()
     conn.close()
@@ -840,7 +836,7 @@ def init_db():
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
     (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-    )
+# [Зайва дужка видалена]
     booking_id = c.lastrowid
     conn.commit()
     conn.close()
@@ -862,7 +858,7 @@ async def show_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
+# [Зайва дужка видалена]
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
@@ -872,7 +868,7 @@ async def show_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
+# [Зайва дужка видалена]
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
@@ -883,7 +879,7 @@ async def show_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
+# [Зайва дужка видалена]
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
@@ -898,7 +894,7 @@ async def show_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"👥 Записів за тиждень: {week_count}\n\n"
         f"🔥 *Топ-процедури:*\n{proc_text}\n\n"
         f"👑 *Топ-клієнти:*\n{client_text}"
-    )
+# [Зайва дужка видалена]
     await update.message.reply_text(text, parse_mode="Markdown")
 
 async def search_client(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -914,7 +910,7 @@ async def search_client(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
+# [Зайва дужка видалена]
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
@@ -935,7 +931,7 @@ def update_client_visits(user_id, name, phone):
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
+# [Зайва дужка видалена]
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
@@ -947,7 +943,7 @@ def update_client_visits(user_id, name, phone):
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
+# [Зайва дужка видалена]
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
@@ -957,7 +953,7 @@ def update_client_visits(user_id, name, phone):
     # [Видалено дублікати INSERT INTO bookings]
 # [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
+# [Зайва дужка видалена]
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
