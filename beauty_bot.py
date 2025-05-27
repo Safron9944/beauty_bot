@@ -628,7 +628,8 @@ if __name__ == "__main__":
     main()
 
 
-# === ДОПОВНЕННЯ: бонуси, статистика, пошук клієнта ===
+
+# --- ДОДАНО: бонуси, VIP, пошук, статистика ---
 
 def init_db():
     conn = sqlite3.connect('appointments.db')
@@ -715,3 +716,20 @@ async def search_client(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"👤 {name}\n📱 {phone}\n⭐️ Візитів: {visits}")
     else:
         await update.message.reply_text("😔 Клієнта не знайдено")
+
+# Після кожного нового запису оновлюємо visits клієнта
+def update_client_visits(user_id, name, phone):
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+    c.execute("SELECT visits FROM clients WHERE user_id = ?", (user_id,))
+    row = c.fetchone()
+    if row:
+        visits = row[0] + 1
+        c.execute("UPDATE clients SET visits=? WHERE user_id=?", (visits, user_id))
+    else:
+        visits = 1
+        c.execute("INSERT INTO clients (user_id, name, phone, visits) VALUES (?, ?, ?, ?)",
+                  (user_id, name, phone, visits))
+    conn.commit()
+    conn.close()
+    return visits
