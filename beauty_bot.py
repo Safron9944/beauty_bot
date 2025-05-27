@@ -10,7 +10,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes,
     MessageHandler, filters
-# [Зайва дужка видалена]
+)
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime, timedelta
 
