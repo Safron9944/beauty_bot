@@ -202,10 +202,36 @@ async def week_calendar_handler(update: Update, context: ContextTypes.DEFAULT_TY
         )
     await update.message.reply_text(text)
 
-# --- Далі йде button_handler, text_handler, send_reminder, mybookings_handler ---
-# Просто встав зі свого коду ці функції сюди, замінивши всі ADMIN_ID на ADMIN_IDS
+async def mybookings_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+    c.execute("SELECT id, procedure, date, time, status FROM bookings WHERE user_id=?", (user_id,))
+    rows = c.fetchall()
+    conn.close()
+    if rows:
+        for rec in rows:
+            booking_id, procedure, date, time, status = rec
+            msg = f"✨ {procedure}\n🗓️ {date} о {time}\nСтатус: *{status}*"
+            buttons = []
+            if status == "Очікує підтвердження":
+                buttons.append(InlineKeyboardButton("✅ Підтвердити", callback_data=f"confirm_{booking_id}"))
+                buttons.append(InlineKeyboardButton("❌ Відмінити", callback_data=f"cancel_{booking_id}"))
+            reply_markup = InlineKeyboardMarkup([buttons]) if buttons else None
+            await update.message.reply_text(msg, reply_markup=reply_markup, parse_mode="Markdown")
+    else:
+        await update.message.reply_text("Записів не знайдено. Час оновити свій образ! 💄")
 
-# Не забудь замінити всі порівняння user_id == ADMIN_ID на user_id in ADMIN_IDS і так далі!
+# ТУТ ВСТАВ СВОЇ ФУНКЦІЇ button_handler, text_handler, send_reminder  
+# (їхній вміст не змінюється, тільки у всіх перевірках '== ADMIN_ID' заміни на 'in ADMIN_IDS')
+
+# Наприклад:
+# async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     ... (Твій код з перевірками через in ADMIN_IDS)
+# async def text_handler(...):
+#     ...
+# async def send_reminder(...):
+#     ...
 
 set_schedule_handler = schedule_handler
 
