@@ -284,16 +284,12 @@ async def calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     await update.message.reply_text(text)
 
-# --- Далі залишаємо твій основний функціонал без змін ---
-
-# Сюди додай всі свої інші функції (button_handler, text_handler, mybookings_handler, send_reminder, week_calendar_handler, і т.д.)
-# Ось мінімальний button_handler з підтримкою нових кнопок:
-
+# --- Обробка всіх кнопок ---
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    # --- НОВІ гілки для edit_schedule ---
+    # --- Новий блок для графіка ---
     if query.data == 'edit_schedule':
         await show_schedule_days(update, context)
         return
@@ -318,8 +314,24 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await addhour_start(update, context, day)
         return
 
-    # --- Інші callback-и з твого коду, наприклад book, confirm, cancel і т.д. ---
-    # ...
+    # --- Головні кнопки меню ---
+    if query.data == "book":
+        await query.message.reply_text("Виберіть процедуру... (сюди додай логіку бронювання)")
+        return
+    if query.data == "check_booking":
+        await query.message.reply_text("Ваші записи: (сюди додай логіку перевірки записів)")
+        return
+    if query.data == "instagram":
+        await instagram_handler(update, context)
+        return
+    if query.data == "help":
+        await help_handler(update, context)
+        return
+    if query.data == "back_to_menu":
+        await start(update, context)
+        return
+
+    # --- Можеш додати додаткові callback-и тут ---
 
 # --- Обробка тексту для додавання дня/години (user_data["step"]) ---
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
