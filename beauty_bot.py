@@ -48,14 +48,37 @@ def init_db():
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [InlineKeyboardButton("💅 Записатися на процедуру", callback_data='book')],
-        [InlineKeyboardButton("📋 Мої записи", callback_data='check_booking')]
+        [InlineKeyboardButton("👑 Записатися на процедуру", callback_data='book')],
+        [InlineKeyboardButton("📋 Мої записи", callback_data='check_booking')],
+        [InlineKeyboardButton("ℹ️ Допомога", callback_data='help')]
     ]
     await update.message.reply_text(
         "👑 Вітаю в beauty-боті! Тут кожна дівчина знаходить час для себе та свого образу ✨\n\n"
         "Оберіть дію нижче:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
+
+async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id == ADMIN_ID:
+        text = (
+            "👑 *Доступні команди:*\n\n"
+            "/start — головне меню\n"
+            "/mybookings — подивитись свої записи\n"
+            "/help — інструкція та список команд\n\n"
+            "*Адміну доступно:*\n"
+            "/schedule — змінити графік\n"
+            "/set_schedule — змінити графік (альтернатива)\n"
+            "/delete_day — видалити день з графіка"
+        )
+    else:
+        text = (
+            "✨ *Доступні команди:*\n\n"
+            "/start — головне меню\n"
+            "/mybookings — подивитись свої записи\n"
+            "/help — інструкція та список команд"
+        )
+    await update.message.reply_text(text, parse_mode='Markdown')
 
 async def schedule_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
@@ -117,6 +140,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data == 'check_booking':
         await query.message.reply_text("📱 Введи свій номер телефону (тільки цифри):")
         context.user_data['step'] = 'check_phone'
+
+    elif query.data == 'help':
+        await help_handler(update, context)
 
     elif query.data.startswith('proc_'):
         proc_map = {
@@ -242,15 +268,15 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn.close()
         add_to_google_sheet(name, "", phone, procedure, date, time)
         keyboard = [
-            [InlineKeyboardButton("💅 Записатися ще", callback_data='book')],
-            [InlineKeyboardButton("📋 Мої записи", callback_data='check_booking')]
+            [InlineKeyboardButton("👑 Записатися ще", callback_data='book')],
+            [InlineKeyboardButton("📋 Мої записи", callback_data='check_booking')],
+            [InlineKeyboardButton("ℹ️ Допомога", callback_data='help')]
         ]
         await update.message.reply_text(
-            f"🎉 Ви записані на *{procedure}* {date} о {time}!\n"
-            "Ваш бʼюті-майстер вже чекає зустрічі з вами, {name} 💖\n"
+            f"🎉 Ви записані на {procedure} {date} о {time}!\n"
+            f"Ваш бʼюті-майстер Марія вже чекає зустрічі з вами 💖\n"
             "До зустрічі у світі краси! 👑✨",
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode='Markdown'
+            reply_markup=InlineKeyboardMarkup(keyboard)
         )
         await context.bot.send_message(
             chat_id=ADMIN_ID,
@@ -323,6 +349,7 @@ def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("help", help_handler))
     app.add_handler(CommandHandler("schedule", schedule_handler))
     app.add_handler(CommandHandler("set_schedule", set_schedule_handler))
     app.add_handler(CommandHandler("delete_day", delete_day_handler))
