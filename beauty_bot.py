@@ -31,8 +31,8 @@ scheduler = BackgroundScheduler()
 def init_db():
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-    c.execute(
-    "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
     (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
     )
     booking_id = c.lastrowid
@@ -41,9 +41,8 @@ def init_db():
     visits = update_client_visits(user_id, name, phone)
     if visits >= 5:
     await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-    """)
-    c.execute(
-    "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
     (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
     )
     booking_id = c.lastrowid
@@ -52,9 +51,8 @@ def init_db():
     visits = update_client_visits(user_id, name, phone)
     if visits >= 5:
     await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-    """)
-    c.execute(
-    "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
     (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
     )
     booking_id = c.lastrowid
@@ -63,7 +61,6 @@ def init_db():
     visits = update_client_visits(user_id, name, phone)
     if visits >= 5:
     await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-    """)
     conn.commit()
     conn.close()
 
@@ -122,8 +119,8 @@ async def edit_schedule_handler(update: Update, context: ContextTypes.DEFAULT_TY
     dates = []
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -155,8 +152,8 @@ async def edit_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     day = query.data.replace('edit_day_', '')
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -190,8 +187,8 @@ async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     dates = set()
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -204,8 +201,8 @@ async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     conn.close()
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -238,8 +235,8 @@ async def calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     today = datetime.now().date()
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -276,8 +273,8 @@ async def week_calendar_handler(update: Update, context: ContextTypes.DEFAULT_TY
     week_dates = [(today + timedelta(days=i)).strftime("%d.%m") for i in range(7)]
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -349,8 +346,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         date = query.data.replace('delday_', '')
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -396,8 +393,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         dates = []
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -432,8 +429,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['date'] = date
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -453,8 +450,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 times = [f"{h:02d}:00" for h in range(11, 19)]
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -497,8 +494,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = query.from_user.id
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -528,8 +525,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         dates = []
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -575,8 +572,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         booking_id = int(query.data.replace('confirm_', ''))
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -585,8 +582,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         visits = update_client_visits(user_id, name, phone)
         if visits >= 5:
             await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -607,8 +604,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         booking_id = int(query.data.replace('cancel_', ''))
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -617,8 +614,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         visits = update_client_visits(user_id, name, phone)
         if visits >= 5:
             await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -648,8 +645,8 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         new_times = text.strip()
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -659,8 +656,8 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if visits >= 5:
             await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
         if exists:
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -669,8 +666,8 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         visits = update_client_visits(user_id, name, phone)
         if visits >= 5:
             await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -698,8 +695,8 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             name, phone = fullinfo.strip(), "N/A"
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -810,8 +807,8 @@ if __name__ == "__main__":
 def init_db():
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-    c.execute(
-    "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
     (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
     )
     booking_id = c.lastrowid
@@ -820,9 +817,8 @@ def init_db():
     visits = update_client_visits(user_id, name, phone)
     if visits >= 5:
     await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-    """)
-    c.execute(
-    "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
     (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
     )
     booking_id = c.lastrowid
@@ -831,9 +827,8 @@ def init_db():
     visits = update_client_visits(user_id, name, phone)
     if visits >= 5:
     await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-    """)
-    c.execute(
-    "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
     (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
     )
     booking_id = c.lastrowid
@@ -842,9 +837,8 @@ def init_db():
     visits = update_client_visits(user_id, name, phone)
     if visits >= 5:
     await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-    """)
-    c.execute(
-    "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
     (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
     )
     booking_id = c.lastrowid
@@ -853,7 +847,6 @@ def init_db():
     visits = update_client_visits(user_id, name, phone)
     if visits >= 5:
     await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-    """)
     conn.commit()
     conn.close()
 
@@ -866,8 +859,8 @@ async def show_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     today = datetime.now().date()
     week_ago = (today - timedelta(days=7)).strftime("%d.%m")
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -876,9 +869,8 @@ async def show_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE):
         visits = update_client_visits(user_id, name, phone)
         if visits >= 5:
             await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -888,9 +880,8 @@ async def show_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if visits >= 5:
             await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
     proc_text = "\n".join([f"{i+1}. {p[0]} ({p[1]})" for i, p in enumerate(top_procedures)])
-
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -920,8 +911,8 @@ async def search_client(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyword = " ".join(context.args).strip()
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -941,8 +932,8 @@ async def search_client(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def update_client_visits(user_id, name, phone):
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -953,8 +944,8 @@ def update_client_visits(user_id, name, phone):
             await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
     if row:
         visits = row[0] + 1
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -963,8 +954,8 @@ def update_client_visits(user_id, name, phone):
         visits = update_client_visits(user_id, name, phone)
         if visits >= 5:
             await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    # [Видалено дублікати INSERT INTO bookings]
+VALUES (?, ?, ?, ?, ?, ?, ?)",
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
