@@ -626,3 +626,92 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# === ДОПОВНЕННЯ: бонуси, статистика, пошук клієнта ===
+
+def init_db():
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS bookings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            phone TEXT,
+            procedure TEXT,
+            date TEXT,
+            time TEXT,
+            user_id INTEGER,
+            status TEXT DEFAULT 'Очікує підтвердження'
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS schedule (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT,
+            times TEXT
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS deleted_days (
+            date TEXT PRIMARY KEY
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS clients (
+            user_id INTEGER PRIMARY KEY,
+            name TEXT,
+            phone TEXT,
+            visits INTEGER DEFAULT 0
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+async def show_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        await update.message.reply_text("⛔ Доступно тільки адміну.")
+        return
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+
+    today = datetime.now().date()
+    week_ago = (today - timedelta(days=7)).strftime("%d.%m")
+    c.execute("SELECT COUNT(*) FROM bookings WHERE date >= ?", (week_ago,))
+    week_count = c.fetchone()[0]
+
+    c.execute("SELECT procedure, COUNT(*) as cnt FROM bookings GROUP BY procedure ORDER BY cnt DESC LIMIT 3")
+    top_procedures = c.fetchall()
+    proc_text = "\n".join([f"{i+1}. {p[0]} ({p[1]})" for i, p in enumerate(top_procedures)])
+
+    c.execute("SELECT name, visits FROM clients ORDER BY visits DESC LIMIT 3")
+    top_clients = c.fetchall()
+    client_text = "\n".join([f"{i+1}. {c[0]} — {c[1]} візитів" for i, c in enumerate(top_clients)])
+
+    conn.close()
+    text = (
+        f"📊 *Статистика салону:*\n\n"
+        f"👥 Записів за тиждень: {week_count}\n\n"
+        f"🔥 *Топ-процедури:*\n{proc_text}\n\n"
+        f"👑 *Топ-клієнти:*\n{client_text}"
+    )
+    await update.message.reply_text(text, parse_mode="Markdown")
+
+async def search_client(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        await update.message.reply_text("⛔ Доступно тільки адміну.")
+        return
+    if not context.args:
+        await update.message.reply_text("🔍 Напишіть /search Ім'я або номер телефону")
+        return
+    keyword = " ".join(context.args).strip()
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+    c.execute("SELECT name, phone, visits FROM clients WHERE name LIKE ? OR phone LIKE ?", (f"%{keyword}%", f"%{keyword}%"))
+    result = c.fetchone()
+    conn.close()
+    if result:
+        name, phone, visits = result
+        await update.message.reply_text(f"👤 {name}\n📱 {phone}\n⭐️ Візитів: {visits}")
+    else:
+        await update.message.reply_text("😔 Клієнта не знайдено")
