@@ -137,7 +137,7 @@ async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     keyboard = [
         [InlineKeyboardButton(f"❌ {date}", callback_data=f"delday_{date}")] for date in dates
     ]
-    await update.message.reply_text("🗑️ Оберіть день для видалення (він зникне для запису):", reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.message.reply_text("🗑️ Обери день для видалення (він зникне для запису):", reply_markup=InlineKeyboardMarkup(keyboard))
     context.user_data['step'] = None
 
 async def calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -203,16 +203,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    # ОДНОРАЗОВИЙ вибір процедури
-    if query.data == 'book':
+    # Вибір процедури з кнопкою назад
+    if query.data == 'book' or query.data == 'back_to_procedure':
         keyboard = [
             [InlineKeyboardButton("✨ Корекція брів (ідеальна форма)", callback_data='proc_brows')],
             [InlineKeyboardButton("🎨 Фарбування + корекція брів", callback_data='proc_tint_brows')],
             [InlineKeyboardButton("🌟 Ламінування брів (WOW-ефект)", callback_data='proc_lam_brows')],
-            [InlineKeyboardButton("👁️ Ламінування вій (виразний погляд)", callback_data='proc_lam_lashes')]
+            [InlineKeyboardButton("👁️ Ламінування вій (виразний погляд)", callback_data='proc_lam_lashes')],
+            [InlineKeyboardButton("⬅️ Назад до меню", callback_data='back_to_menu')]
         ]
         await query.message.reply_text(
-            "💖 Обери бʼюті-процедуру, яка змусить сяяти твої очі:",
+            "✨ Обери свою бʼюті-процедуру, красуне! Серденьком познач ту, яка надихає найбільше — або натискай ⬅️ щоб повернутись до мрій 🌈💖\n\nОбіцяю, твоя краса засяє ще яскравіше! 🫶",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
         context.user_data.clear()
@@ -244,8 +245,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = [
             [InlineKeyboardButton(f"📅 Обираю {date} 💋", callback_data=f'date_{date}')] for date in dates
         ]
+        keyboard.append([InlineKeyboardButton("⬅️ Назад до процедур", callback_data='back_to_procedure')])
         await query.message.reply_text(
-            "💗 Обери бажану дату для твоєї краси:",
+            "🌸 Який день зробить тебе ще прекраснішою? Обирай сердечко на календарі й лови натхнення! Якщо раптом захочеш змінити процедуру — просто тисни ⬅️ і повертайся до вибору, бо твоя краса важлива! ✨💐",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
         context.user_data['step'] = None
@@ -303,11 +305,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.message.reply_text("😔 Всі години на цей день вже зайняті. Спробуй обрати інший день!")
             return
         keyboard = [
-            [InlineKeyboardButton(f"🕒 {time} | Моє ідеальне віконце 💖", callback_data=f"time_{time}")]
+            [InlineKeyboardButton(f"🕒 {time} | Моє ідеальне віконце 💖", callback_data=f'time_{time}')]
             for time in free_times
         ]
+        keyboard.append([InlineKeyboardButton("⬅️ Назад до календаря", callback_data='back_to_date')])
         await query.message.reply_text(
-            "⏰ Обери зручний час для своєї бʼюті-процедури:",
+            "👑 Час бути зіркою! Всі ідеальні годинки чекають саме тебе, обирай найзручніше ❤️\n\nЯкщо передумала — натискай ⬅️ та змінюй дату. Ми зробимо твій день особливим! 💫",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
         context.user_data['step'] = None
@@ -316,10 +319,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data.startswith("time_"):
         time = query.data.replace("time_", "")
         context.user_data['time'] = time
+        keyboard = [
+            [InlineKeyboardButton("⬅️ До вибору часу", callback_data='back_to_time')]
+        ]
         await query.message.reply_text(
-            "👸 Введи *ПІБ* та *номер телефону* через кому:\n\n"
-            "_Наприклад: Ярина Квіткова, 0971234567_\n"
-            "Твій майстер запише тебе з усмішкою! 😊",
+            "💕 Твоя краса вже майже у мене в руках! Залиш, будь ласка, ім’я та телефон, щоб я могла тобі написати або зателефонувати ✨\n\nМожеш повернутись ⬅️ до вибору часу, якщо щось передумала — я тут, щоб все було ідеально! 🌷\n\nДякую, що обираєш мене для своїх преображень! 😇",
+            reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='Markdown'
         )
         context.user_data['step'] = 'get_fullinfo'
@@ -347,7 +352,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if row:
             procedure, date, time = row
             await query.message.reply_text(
-                f"✅ Ваш запис на {procedure} {date} о {time} підтверджено!"
+                f"✅ Ваш запис на {procedure} {date} о {time} підтверджено! Я з нетерпінням чекаю на тебе! 💖"
             )
         return
 
@@ -362,11 +367,89 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn.close()
         if row:
             name, procedure, date, time = row
-            await query.message.reply_text("❌ Ваш запис успішно скасовано.")
+            await query.message.reply_text("❌ Твій запис успішно скасовано. Якщо захочеш повернутися — я завжди тут! 💞")
             await context.bot.send_message(
                 chat_id=ADMIN_ID,
                 text=f"❗️Клієнт {name} скасував запис: {procedure} {date} о {time}"
             )
+        return
+
+    # Назад до меню
+    if query.data == 'back_to_menu':
+        await start(update, context)
+        return
+
+    # Назад до процедур
+    if query.data == 'back_to_procedure':
+        keyboard = [
+            [InlineKeyboardButton("✨ Корекція брів (ідеальна форма)", callback_data='proc_brows')],
+            [InlineKeyboardButton("🎨 Фарбування + корекція брів", callback_data='proc_tint_brows')],
+            [InlineKeyboardButton("🌟 Ламінування брів (WOW-ефект)", callback_data='proc_lam_brows')],
+            [InlineKeyboardButton("👁️ Ламінування вій (виразний погляд)", callback_data='proc_lam_lashes')],
+            [InlineKeyboardButton("⬅️ Назад до меню", callback_data='back_to_menu')]
+        ]
+        await query.message.reply_text(
+            "✨ Обери свою бʼюті-процедуру, красуне! Серденьком познач ту, яка надихає найбільше — або натискай ⬅️ щоб повернутись до мрій 🌈💖\n\nОбіцяю, твоя краса засяє ще яскравіше! 🫶",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return
+
+    # Назад до дат
+    if query.data == 'back_to_date':
+        procedure = context.user_data.get('procedure')
+        today = datetime.now().date()
+        dates = []
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("SELECT date FROM deleted_days")
+        deleted = {row[0] for row in c.fetchall()}
+        conn.close()
+        for i in range(7):
+            d = today + timedelta(days=i)
+            date_str = d.strftime("%d.%m")
+            if date_str not in deleted:
+                dates.append(date_str)
+        keyboard = [
+            [InlineKeyboardButton(f"📅 Обираю {date} 💋", callback_data=f'date_{date}')] for date in dates
+        ]
+        keyboard.append([InlineKeyboardButton("⬅️ Назад до процедур", callback_data='back_to_procedure')])
+        await query.message.reply_text(
+            "🌸 Який день зробить тебе ще прекраснішою? Обирай сердечко на календарі й лови натхнення! Якщо раптом захочеш змінити процедуру — просто тисни ⬅️ і повертайся до вибору, бо твоя краса важлива! ✨💐",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return
+
+    # Назад до часу
+    if query.data == 'back_to_time':
+        date = context.user_data.get('date')
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("SELECT times FROM schedule WHERE date = ?", (date,))
+        row = c.fetchone()
+        conn.close()
+        if row:
+            times = [t.strip() for t in row[0].split(',')]
+        else:
+            day = datetime.strptime(date + f".{datetime.now().year}", "%d.%m.%Y").weekday()
+            if day < 5:
+                times = [f"{h:02d}:00" for h in range(14, 19)]
+            else:
+                times = [f"{h:02d}:00" for h in range(11, 19)]
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("SELECT time FROM bookings WHERE date = ?", (date,))
+        booked_times = [row[0] for row in c.fetchall()]
+        conn.close()
+        free_times = [t for t in times if t not in booked_times]
+        keyboard = [
+            [InlineKeyboardButton(f"🕒 {time} | Моє ідеальне віконце 💖", callback_data=f'time_{time}')]
+            for time in free_times
+        ]
+        keyboard.append([InlineKeyboardButton("⬅️ Назад до календаря", callback_data='back_to_date')])
+        await query.message.reply_text(
+            "👑 Час бути зіркою! Всі ідеальні годинки чекають саме тебе, обирай найзручніше ❤️\n\nЯкщо передумала — натискай ⬅️ та змінюй дату. Ми зробимо твій день особливим! 💫",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
         return
 
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -415,10 +498,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("ℹ️ Допомога", callback_data='help')]
         ]
         await update.message.reply_text(
-            f"🎉 Ви записані на {procedure} {date} о {time}!\n"
-            f"Ваш бʼюті-майстер Марія вже чекає зустрічі з вами 💖\n"
-            "До зустрічі у світі краси! 👑✨\n\n"
-            "Підтвердіть або скасуйте свій запис нижче:",
+            f"🎉 Вітаю, ти записана на {procedure} {date} о {time}! Я вже чекаю на зустріч із такою чудовою дівчиною, як ти 💖\n\nНатискай кнопочки нижче, якщо потрібно підтвердити чи скасувати запис, або запишися ще — адже гарного настрою забагато не буває! 🌸✨",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
         await context.bot.send_message(
@@ -479,9 +559,9 @@ async def send_reminder(user_id, procedure, date, time, mode="day"):
     bot = Bot(token=TOKEN)
     try:
         if mode == "day":
-            text = f"⏰ Нагадування!\nЗавтра Ваш запис: {procedure} {date} о {time}.\nБʼюті-майстер чекає! 🌸"
+            text = f"⏰ Красива, нагадую: вже завтра твій бʼюті-запис на {procedure} {date} о {time}! Я чекаю тебе з гарним настроєм і натхненням ✨ До зустрічі, сонечко! 💞"
         elif mode == "2h":
-            text = f"💬 Ваш запис вже за 2 години: {procedure} {date} о {time}!\nГотуйтеся до краси! 👑✨"
+            text = f"💬 Твій бʼюті-час вже зовсім скоро — через 2 годинки! {procedure} {date} о {time} 🌷 Я вже готую найкращі фарби, пензлі та гарячий чай! До зустрічі, зіронько! 👑"
         else:
             text = f"Нагадування про запис: {procedure} {date} о {time}."
         await bot.send_message(
