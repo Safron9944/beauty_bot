@@ -210,7 +210,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🎨 Фарбування + корекція брів", callback_data='proc_tint_brows')],
             [InlineKeyboardButton("🌟 Ламінування брів (WOW-ефект)", callback_data='proc_lam_brows')],
             [InlineKeyboardButton("👁️ Ламінування вій (виразний погляд)", callback_data='proc_lam_lashes')],
-            [InlineKeyboardButton("⬅️ Назад до меню", callback_data='back_to_menu')]
+            [InlineKeyboardButton("⬅️ Назад до меню", callback_data="back_to_menu")]
         ]
         await query.message.reply_text(
             "✨ Обери свою бʼюті-процедуру, красуне! Серденьком познач ту, яка надихає найбільше — або натискай ⬅️ щоб повернутись до мрій 🌈💖\n\nОбіцяю, твоя краса засяє ще яскравіше! 🫶",
