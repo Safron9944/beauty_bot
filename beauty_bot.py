@@ -11,11 +11,8 @@ from telegram.ext import (
     ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes,
     MessageHandler, filters
 )
-from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime, timedelta
-from google_sheets import add_to_google_sheet
 
-scheduler = BackgroundScheduler()
 INSTAGRAM_LINK = "https://www.instagram.com/safroniuk_brows_lashes?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw=="
 
 def init_db():
@@ -38,11 +35,6 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             date TEXT,
             times TEXT
-        )
-    """)
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS deleted_days (
-            date TEXT PRIMARY KEY
         )
     """)
     conn.commit()
@@ -70,10 +62,6 @@ async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "/mybookings — подивитись свої записи\n"
             "/help — інструкція та список команд\n"
             "/instagram — Instagram майстра\n"
-            "/calendar — календар записів на сьогодні (адміну)\n"
-            "/weekcalendar — календар на тиждень (адміну)\n\n"
-            "*Адміну доступно:*\n"
-            "/schedule — графік з кнопками"
         )
     else:
         text = (
@@ -97,106 +85,12 @@ async def instagram_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.callback_query.message.reply_text(text, parse_mode="Markdown", disable_web_page_preview=False)
 
-async def schedule_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID:
-        await update.message.reply_text("⛔ Доступно тільки адміну.")
-        return
-    keyboard = [
-        [InlineKeyboardButton("Редагувати графік тижня", callback_data='admin_schedule')]
-    ]
-    await update.message.reply_text("Що хочеш зробити з графіком?", reply_markup=InlineKeyboardMarkup(keyboard))
-    context.user_data['step'] = None
-
-async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID:
-        await update.message.reply_text("⛔ Доступно тільки адміну.")
-        return
-    today = datetime.now().date()
-    dates = set()
-    for i in range(7):
-        d = today + timedelta(days=i)
-        dates.add(d.strftime("%d.%m"))
-    conn = sqlite3.connect('appointments.db')
-    c = conn.cursor()
-    c.execute("SELECT DISTINCT date FROM schedule")
-    for row in c.fetchall():
-        dates.add(row[0])
-    conn.close()
-    conn = sqlite3.connect('appointments.db')
-    c = conn.cursor()
-    c.execute("SELECT date FROM deleted_days")
-    deleted = {row[0] for row in c.fetchall()}
-    conn.close()
-    dates = [d for d in dates if d not in deleted]
-    dates = sorted(list(dates), key=lambda x: datetime.strptime(x + f".{datetime.now().year}", "%d.%m.%Y"))
-    if not dates:
-        await update.message.reply_text("Немає днів для видалення.")
-        return
-    keyboard = [
-        [InlineKeyboardButton(f"❌ {date}", callback_data=f"delday_{date}")] for date in dates
-    ]
-    await update.message.reply_text("🗑️ Обери день для видалення (він зникне для запису):", reply_markup=InlineKeyboardMarkup(keyboard))
-    context.user_data['step'] = None
-
-async def calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID:
-        await update.message.reply_text("⛔ Доступно тільки адміну.")
-        return
-    today = datetime.now().date()
-    conn = sqlite3.connect('appointments.db')
-    c = conn.cursor()
-    c.execute(
-        "SELECT date, time, procedure, name, phone, status FROM bookings "
-        "WHERE date=? ORDER BY date, time", (today.strftime("%d.%m"),)
-    )
-    rows = c.fetchall()
-    conn.close()
-    if not rows:
-        await update.message.reply_text("Сьогодні записів немає.")
-        return
-    text = f"📅 Записи на {today.strftime('%d.%m.%Y')}:\n\n"
-    for rec in rows:
-        date, time, procedure, name, phone, status = rec
-        text += (
-            f"🕒 {time} — {procedure}\n"
-            f"👤 {name}, 📱 {phone}\n"
-            f"Статус: {status}\n\n"
-        )
-    await update.message.reply_text(text)
-
-async def week_calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID:
-        await update.message.reply_text("⛔ Доступно тільки адміну.")
-        return
-    today = datetime.now().date()
-    week_dates = [(today + timedelta(days=i)).strftime("%d.%m") for i in range(7)]
-    conn = sqlite3.connect('appointments.db')
-    c = conn.cursor()
-    c.execute(
-        f"SELECT date, time, procedure, name, phone, status FROM bookings "
-        f"WHERE date IN ({','.join(['?']*len(week_dates))}) ORDER BY date, time", week_dates
-    )
-    rows = c.fetchall()
-    conn.close()
-    if not rows:
-        await update.message.reply_text("На цей тиждень записів немає.")
-        return
-    text = "📆 Записи на цей тиждень:\n\n"
-    for rec in rows:
-        date, time, procedure, name, phone, status = rec
-        text += (
-            f"📅 {date} 🕒 {time} — {procedure}\n"
-            f"👤 {name}, 📱 {phone}\n"
-            f"Статус: {status}\n\n"
-        )
-    await update.message.reply_text(text)
-
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
 
-    # === Назад до меню ===
+    # Головне меню
     if query.data == 'back_to_menu':
         if query.message:
             await query.message.delete()
@@ -215,72 +109,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.clear()
         return
 
-    # ========== ІНТЕРАКТИВНЕ АДМІН-МЕНЮ ГРАФІКА ===============
-    # Показати дати тижня
-    if query.data == "admin_schedule":
-        if user_id != ADMIN_ID:
-            await query.message.reply_text("⛔ Доступно лише адміну.")
-            return
-        today = datetime.now().date()
-        week_dates = [(today + timedelta(days=i)).strftime("%d.%m") for i in range(7)]
-        keyboard = [
-            [InlineKeyboardButton(date, callback_data=f"admin_schedule_{date}")]
-            for date in week_dates
-        ]
-        await query.message.reply_text("🗓️ Обери день для редагування:", reply_markup=InlineKeyboardMarkup(keyboard))
-        return
-
-    # Обрана дата — показати години цієї дати
-    if query.data.startswith("admin_schedule_"):
-        date = query.data.replace("admin_schedule_", "")
-        conn = sqlite3.connect('appointments.db')
-        c = conn.cursor()
-        c.execute("SELECT times FROM schedule WHERE date = ?", (date,))
-        row = c.fetchone()
-        conn.close()
-        times = []
-        if row and row[0]:
-            times = [t.strip() for t in row[0].split(',') if t.strip()]
-        keyboard = []
-        for t in times:
-            keyboard.append([InlineKeyboardButton(f"🕒 {t} ❌", callback_data=f"admin_del_time_{date}_{t}")])
-        keyboard.append([InlineKeyboardButton("➕ Додати час", callback_data=f"admin_add_time_{date}")])
-        keyboard.append([InlineKeyboardButton("❌ Видалити день повністю", callback_data=f"delday_{date}")])
-        keyboard.append([InlineKeyboardButton("⬅️ Назад", callback_data="admin_schedule")])
-        await query.message.reply_text(f"⏰ Часи для {date}:", reply_markup=InlineKeyboardMarkup(keyboard))
-        return
-
-    # Видалити конкретний час
-    if query.data.startswith("admin_del_time_"):
-        _, date, time = query.data.split("_", 2)
-        conn = sqlite3.connect('appointments.db')
-        c = conn.cursor()
-        c.execute("SELECT times FROM schedule WHERE date = ?", (date,))
-        row = c.fetchone()
-        if row and row[0]:
-            times = [t.strip() for t in row[0].split(',') if t.strip() and t.strip() != time]
-            new_times = ",".join(times)
-            if new_times:
-                c.execute("UPDATE schedule SET times = ? WHERE date = ?", (new_times, date))
-            else:
-                c.execute("DELETE FROM schedule WHERE date = ?", (date,))
-            conn.commit()
-        conn.close()
-        await query.message.reply_text(f"⏰ Час {time} видалено для {date}.")
-        # Показати знову меню для цієї дати
-        await button_handler(update, context)
-        return
-
-    # Додати час (введення вручну)
-    if query.data.startswith("admin_add_time_"):
-        date = query.data.replace("admin_add_time_", "")
-        context.user_data["admin_add_time_date"] = date
-        await query.message.reply_text("Введи час для додавання у форматі HH:MM (наприклад, 16:00):")
-        context.user_data["step"] = "admin_add_time"
-        return
-
-    # ...далі залишаєш решту button_handler як було (процедури, календар, підтвердження, скасування, стандартна логіка)...
-
     # Вибір процедури
     if query.data == 'book' or query.data == 'back_to_procedure':
         keyboard = [
@@ -291,67 +119,105 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("⬅️ Назад до меню", callback_data='back_to_menu')]
         ]
         await query.message.reply_text(
-            "✨ Обери свою бʼюті-процедуру, красуне! Серденьком познач ту, яка надихає найбільше — або натискай ⬅️ щоб повернутись до мрій 🌈💖\n\nОбіцяю, твоя краса засяє ще яскравіше! 🫶",
+            "✨ Обери свою бʼюті-процедуру! Серденьком обирай те, що подобається найбільше — або натисни ⬅️ щоб повернутись до мрій!",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
         context.user_data.clear()
         return
 
-    # ...інші callback-и (залишаєш як у тебе)...
+    # --- Обробка вибору процедури ---
+    if query.data.startswith('proc_'):
+        procedures = {
+            'proc_brows': "Корекція брів (ідеальна форма)",
+            'proc_tint_brows': "Фарбування + корекція брів",
+            'proc_lam_brows': "Ламінування брів (WOW-ефект)",
+            'proc_lam_lashes': "Ламінування вій (виразний погляд)",
+        }
+        procedure = procedures.get(query.data, "Невідома процедура")
+        context.user_data['procedure'] = procedure
+        # Показати вибір дати (7 днів наперед)
+        today = datetime.now().date()
+        dates = [(today + timedelta(days=i)).strftime("%d.%m") for i in range(7)]
+        keyboard = [
+            [InlineKeyboardButton(date, callback_data=f"date_{date}")]
+            for date in dates
+        ]
+        keyboard.append([InlineKeyboardButton("⬅️ Назад", callback_data="back_to_procedure")])
+        await query.message.reply_text(
+            "🌸 Який день зробить тебе ще красивішою? Вибирай і натискай сердечко! Або повернись на крок назад, якщо захочеш змінити процедуру 💖",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return
+
+    # --- Вибір дати ---
+    if query.data.startswith("date_"):
+        date = query.data.replace("date_", "")
+        context.user_data["date"] = date
+        # Показати вибір часу (9:00–19:00 кожну годину)
+        times = [f"{h}:00" for h in range(9, 20)]
+        keyboard = [
+            [InlineKeyboardButton(time, callback_data=f"time_{time}")]
+            for time in times
+        ]
+        keyboard.append([InlineKeyboardButton("⬅️ Назад", callback_data="back_to_procedure")])
+        await query.message.reply_text(
+            "👑 Обери свій зірковий час! Всі годинки чекають саме тебе 💖 Або ⬅️ Назад, щоб змінити день",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return
+
+    # --- Вибір часу ---
+    if query.data.startswith("time_"):
+        time = query.data.replace("time_", "")
+        context.user_data["time"] = time
+        context.user_data["step"] = "input_name_phone"
+        keyboard = [
+            [InlineKeyboardButton("⬅️ Назад", callback_data=f"date_{context.user_data['date']}")]
+        ]
+        await query.message.reply_text(
+            "✨ Ще крок до краси! Введи ім’я та телефон, наприклад: Марія, 0930001122",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return
 
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_step = context.user_data.get('step')
     text = update.message.text
 
-    # Додавання часу в графік адміністратором
-    if user_step == "admin_add_time":
-        date = context.user_data.get("admin_add_time_date")
-        new_time = text.strip()
+    # Введення ПІБ і телефону
+    if user_step == "input_name_phone":
         try:
-            datetime.strptime(new_time, "%H:%M")
+            name, phone = [x.strip() for x in text.split(',', 1)]
         except Exception:
-            await update.message.reply_text("❗ Некоректний формат. Спробуй ще раз у форматі HH:MM.")
+            await update.message.reply_text("Будь ласка, введи дані у форматі: Ім'я, телефон (наприклад, Марія, 0930001122)")
             return
+        procedure = context.user_data.get("procedure")
+        date = context.user_data.get("date")
+        time = context.user_data.get("time")
+        user_id = update.effective_user.id
+        # Записуємо в базу
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-        c.execute("SELECT times FROM schedule WHERE date = ?", (date,))
-        row = c.fetchone()
-        if row and row[0]:
-            times = [t.strip() for t in row[0].split(',') if t.strip()]
-            if new_time in times:
-                await update.message.reply_text("Такий час уже є.")
-                conn.close()
-                return
-            times.append(new_time)
-            new_times = ",".join(sorted(times))
-            c.execute("UPDATE schedule SET times = ? WHERE date = ?", (new_times, date))
-        else:
-            c.execute("INSERT INTO schedule (date, times) VALUES (?, ?)", (date, new_time))
+        c.execute("INSERT INTO bookings (name, phone, procedure, date, time, user_id) VALUES (?, ?, ?, ?, ?, ?)",
+                  (name, phone, procedure, date, time, user_id))
         conn.commit()
         conn.close()
-        await update.message.reply_text(f"🆕 Час {new_time} додано для {date}!")
-        await button_handler(update, context)
-        context.user_data["step"] = None
-        context.user_data.pop("admin_add_time_date", None)
+        await update.message.reply_text(
+            f"💖 Дякую, {name}! Твій запис на “{procedure}” {date} о {time} збережено!\n"
+            "Я з тобою зв’яжусь для підтвердження.\n\n"
+            "✨ Якщо хочеш записатись ще — просто натисни /start"
+        )
+        context.user_data.clear()
         return
-
-    # ...залиш інші кроки як у тебе...
 
 def main():
     init_db()
     app = ApplicationBuilder().token(TOKEN).build()
-
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_handler))
     app.add_handler(CommandHandler("instagram", instagram_handler))
-    app.add_handler(CommandHandler("calendar", calendar_handler))
-    app.add_handler(CommandHandler("weekcalendar", week_calendar_handler))
-    app.add_handler(CommandHandler("schedule", schedule_handler))
-    app.add_handler(CommandHandler("delete_day", delete_day_handler))
-    # ...інші хендлери...
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
-
     app.run_polling()
 
 if __name__ == "__main__":
