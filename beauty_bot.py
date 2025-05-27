@@ -539,7 +539,10 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             name, phone = fullinfo.strip(), "N/A"
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-        c.execute("INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        c.execute(
+            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
+        )
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
