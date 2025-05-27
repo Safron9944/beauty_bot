@@ -31,36 +31,30 @@ scheduler = BackgroundScheduler()
 def init_db():
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-    (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-    booking_id = c.lastrowid
-    conn.commit()
-    conn.close()
-    visits = update_client_visits(user_id, name, phone)
-    if visits >= 5:
-    await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-    (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-    booking_id = c.lastrowid
-    conn.commit()
-    conn.close()
-    visits = update_client_visits(user_id, name, phone)
-    if visits >= 5:
-    await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-    (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-    booking_id = c.lastrowid
-    conn.commit()
-    conn.close()
-    visits = update_client_visits(user_id, name, phone)
-    if visits >= 5:
-    await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS bookings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            phone TEXT,
+            procedure TEXT,
+            date TEXT,
+            time TEXT,
+            user_id INTEGER,
+            status TEXT DEFAULT 'Очікує підтвердження'
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS schedule (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT,
+            times TEXT
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS deleted_days (
+            date TEXT PRIMARY KEY
+        )
+    """)
     conn.commit()
     conn.close()
 
@@ -84,7 +78,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "— знайти салон на мапі\n"
         "— глянути Instagram або написати майстру\n\n"
         "🌸 Краса починається тут!"
-# [Зайва дужка видалена]
+    )
     if hasattr(update, "message") and update.message:
         await update.message.reply_text(welcome, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
     else:
@@ -108,7 +102,7 @@ async def admin_service_handler(update: Update, context: ContextTypes.DEFAULT_TY
         "⚙️ *Адмін-сервіс*\n\n"
         "Керуйте розкладом, дивіться всі записи і тримайте красу під контролем 👑\n"
         "Обирайте дію:"
-# [Зайва дужка видалена]
+    )
     await query.edit_message_text(text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
 
 # --- РЕДАГУВАННЯ ГРАФІКУ (АДМІН) ---
@@ -119,16 +113,8 @@ async def edit_schedule_handler(update: Update, context: ContextTypes.DEFAULT_TY
     dates = []
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
+    c.execute("SELECT DISTINCT date FROM schedule")
+    scheduled_dates = {row[0] for row in c.fetchall()}
     conn.close()
     for i in range(10):
         d = today + timedelta(days=i)
@@ -145,22 +131,15 @@ async def edit_schedule_handler(update: Update, context: ContextTypes.DEFAULT_TY
         "— Дні з ✅ — вже мають графік, ➕ — можна додати\n"
         "— Зміни/додай години через коми (після вибору дня)\n",
         reply_markup=InlineKeyboardMarkup(keyboard)
-# [Зайва дужка видалена]
+    )
+
 async def edit_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     day = query.data.replace('edit_day_', '')
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
+    c.execute("SELECT times FROM schedule WHERE date = ?", (day,))
+    row = c.fetchone()
     conn.close()
     times = row[0] if row else ""
     context.user_data['edit_day'] = day
@@ -168,11 +147,11 @@ async def edit_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🗓️ *{day}*\n"
         "Введіть години для цього дня через кому (наприклад: 10:00,11:30,12:00):\n"
         f"Поточний графік: {times if times else 'Немає'}"
-# [Зайва дужка видалена]
+    )
     await query.edit_message_text(
         text, parse_mode='Markdown',
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Дні", callback_data="edit_schedule")]])
-# [Зайва дужка видалена]
+    )
     context.user_data['step'] = 'edit_times'
 
 # --- ІНШІ АДМІН ФУНКЦІЇ ---
@@ -186,37 +165,21 @@ async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     dates = set()
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
+    c.execute("SELECT DISTINCT date FROM schedule")
+    for row in c.fetchall():
         dates.add(row[0])
     conn.close()
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
+    c.execute("SELECT date FROM deleted_days")
+    deleted = {row[0] for row in c.fetchall()}
     conn.close()
     dates = [d for d in dates if d not in deleted]
     dates = sorted(list(dates), key=lambda x: datetime.strptime(x + f".{datetime.now().year}", "%d.%m.%Y"))
     if not dates:
         await query.edit_message_text("🌺 Немає днів для видалення.",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Назад до адмін-сервісу", callback_data="admin_service")]])
-# [Зайва дужка видалена]
+        )
         return
     keyboard = [
         [InlineKeyboardButton(f"❌ {date}", callback_data=f"delday_{date}")] for date in dates
@@ -225,7 +188,8 @@ async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await query.edit_message_text(
         "🗑️ Обери день для видалення з розкладу:",
         reply_markup=InlineKeyboardMarkup(keyboard)
-# [Зайва дужка видалена]
+    )
+
 async def calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("⛔ Доступно тільки адміну.")
@@ -233,23 +197,16 @@ async def calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     today = datetime.now().date()
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-# [Зайва дужка видалена]
+    c.execute(
+        "SELECT date, time, procedure, name, phone, status FROM bookings "
+        "WHERE date=? ORDER BY date, time", (today.strftime("%d.%m"),)
+    )
     rows = c.fetchall()
     conn.close()
     if not rows:
         await update.callback_query.edit_message_text("Сьогодні записів немає 💤.",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")]])
-# [Зайва дужка видалена]
+        )
         return
     text = f"📅 Записи на {today.strftime('%d.%m.%Y')}:\n\n"
     for rec in rows:
@@ -258,10 +215,11 @@ async def calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🕒 {time} — {procedure}\n"
             f"👤 {name}, 📱 {phone}\n"
             f"Статус: {status}\n\n"
-# [Зайва дужка видалена]
+        )
     await update.callback_query.edit_message_text(text,
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")]])
-# [Зайва дужка видалена]
+    )
+
 async def week_calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("⛔ Доступно тільки адміну.")
@@ -270,23 +228,16 @@ async def week_calendar_handler(update: Update, context: ContextTypes.DEFAULT_TY
     week_dates = [(today + timedelta(days=i)).strftime("%d.%m") for i in range(7)]
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-# [Зайва дужка видалена]
+    c.execute(
+        f"SELECT date, time, procedure, name, phone, status FROM bookings "
+        f"WHERE date IN ({','.join(['?']*len(week_dates))}) ORDER BY date, time", week_dates
+    )
     rows = c.fetchall()
     conn.close()
     if not rows:
         await update.callback_query.edit_message_text("На цей тиждень записів немає 💤.",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")]])
-# [Зайва дужка видалена]
+        )
         return
     text = "📆 Записи на цей тиждень:\n\n"
     for rec in rows:
@@ -295,10 +246,11 @@ async def week_calendar_handler(update: Update, context: ContextTypes.DEFAULT_TY
             f"📅 {date} 🕒 {time} — {procedure}\n"
             f"👤 {name}, 📱 {phone}\n"
             f"Статус: {status}\n\n"
-# [Зайва дужка видалена]
+        )
     await update.callback_query.edit_message_text(text,
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")]])
-# [Зайва дужка видалена]
+    )
+
 # --- CALLBACK HANDLER ---
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -342,20 +294,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         date = query.data.replace('delday_', '')
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-        booking_id = c.lastrowid
+        c.execute("INSERT OR IGNORE INTO deleted_days (date) VALUES (?)", (date,))
         conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
         conn.close()
         await query.edit_message_text(f"✅ День {date} видалено з графіка. Більше недоступний для запису!",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")]])
-# [Зайва дужка видалена]
+        )
         return
 
     # --- ДЛЯ КЛІЄНТА ---
@@ -373,7 +317,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Обіцяю, твоя краса засяє ще яскравіше! 🫶",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode="Markdown"
-# [Зайва дужка видалена]
+        )
         context.user_data.clear()
         return
 
@@ -389,16 +333,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         dates = []
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
+        c.execute("SELECT date FROM deleted_days")
+        deleted = {row[0] for row in c.fetchall()}
         conn.close()
         for i in range(7):
             d = today + timedelta(days=i)
@@ -416,7 +352,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🌸 Який день зробить тебе ще прекраснішою? Обирай сердечко на календарі!\n"
             "Передумала? Натискай ⬅️, і обери іншу процедуру! ✨💐",
             reply_markup=InlineKeyboardMarkup(keyboard)
-# [Зайва дужка видалена]
+        )
         context.user_data['step'] = None
         return
 
@@ -425,16 +361,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['date'] = date
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
+        c.execute("SELECT times FROM schedule WHERE date = ?", (date,))
+        row = c.fetchone()
         conn.close()
         if row:
             times = [t.strip() for t in row[0].split(',')]
@@ -446,16 +374,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 times = [f"{h:02d}:00" for h in range(11, 19)]
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
+        c.execute("SELECT time FROM bookings WHERE date = ?", (date,))
+        booked_times = [row[0] for row in c.fetchall()]
         conn.close()
         free_times = [t for t in times if t not in booked_times]
         if not free_times:
@@ -470,7 +390,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "👑 Час бути зіркою! Обирай ідеальний час ❤️\n"
             "Хочеш змінити дату? Натискай ⬅️",
             reply_markup=InlineKeyboardMarkup(keyboard)
-# [Зайва дужка видалена]
+        )
         context.user_data['step'] = None
         return
 
@@ -482,7 +402,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Залиш, будь ласка, *Ім'я, прізвище та номер телефону*, щоб я могла тобі написати або зателефонувати ✨\n\n"
             "_Наприклад: Марія Сафронюк, +380976853623_",
             parse_mode='Markdown'
-# [Зайва дужка видалена]
+        )
         context.user_data['step'] = 'get_fullinfo'
         return
 
@@ -490,16 +410,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = query.from_user.id
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
+        c.execute("SELECT id, procedure, date, time, status FROM bookings WHERE user_id=?", (user_id,))
+        rows = c.fetchall()
         conn.close()
         if rows:
             for rec in rows:
@@ -521,16 +433,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         dates = []
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
+        c.execute("SELECT date FROM deleted_days")
+        deleted = {row[0] for row in c.fetchall()}
         conn.close()
         for i in range(7):
             d = today + timedelta(days=i)
@@ -544,7 +448,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(
             "🌸 Який день зробить тебе ще прекраснішою? Обирай сердечко на календарі й лови натхнення! Якщо раптом захочеш змінити процедуру — просто тисни ⬅️ і повертайся до вибору, бо твоя краса важлива! ✨💐",
             reply_markup=InlineKeyboardMarkup(keyboard)
-# [Зайва дужка видалена]
+        )
         return
 
     if query.data == "master_phone":
@@ -552,7 +456,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"👩‍🎨 *Ваш майстер: {MASTER_NAME}*\n"
             f"☎️ Телефон: `{MASTER_PHONE}`\n"
             "Завжди рада допомогти — телефонуйте або пишіть у Viber/Telegram! 💬"
-# [Зайва дужка видалена]
+        )
         await query.edit_message_text(text, parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(
                 [
@@ -560,66 +464,34 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     [InlineKeyboardButton("📍 Геолокація", url=MASTER_GEO_LINK)],
                     [InlineKeyboardButton("⬅️ Головне меню", callback_data="back_to_menu")]
                 ]
-# [Зайва дужка видалена]
-# [Зайва дужка видалена]
+            )
+        )
         return
 
     if query.data.startswith('confirm_'):
         booking_id = int(query.data.replace('confirm_', ''))
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-        booking_id = c.lastrowid
+        c.execute("UPDATE bookings SET status=? WHERE id=?", ("Підтверджено", booking_id))
         conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
+        c.execute("SELECT procedure, date, time FROM bookings WHERE id=?", (booking_id,))
+        row = c.fetchone()
         conn.close()
         if row:
             procedure, date, time = row
             await query.message.reply_text(
                 f"✅ Ваш запис на {procedure} {date} о {time} підтверджено! Я з нетерпінням чекаю на тебе! 💖"
-# [Зайва дужка видалена]
+            )
         return
 
     if query.data.startswith('cancel_'):
         booking_id = int(query.data.replace('cancel_', ''))
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-        booking_id = c.lastrowid
+        c.execute("SELECT name, procedure, date, time FROM bookings WHERE id=?", (booking_id,))
+        row = c.fetchone()
+        c.execute("DELETE FROM bookings WHERE id=?", (booking_id,))
         conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
         conn.close()
         if row:
             name, procedure, date, time = row
@@ -627,7 +499,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(
                 chat_id=ADMIN_ID,
                 text=f"❗️Клієнт {name} скасував запис: {procedure} {date} о {time}"
-# [Зайва дужка видалена]
+            )
         return
 
 # --- ВВЕДЕННЯ ТЕКСТУ ---
@@ -641,37 +513,13 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         new_times = text.strip()
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
+        c.execute("SELECT id FROM schedule WHERE date = ?", (day,))
+        exists = c.fetchone()
         if exists:
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-        booking_id = c.lastrowid
+            c.execute("UPDATE schedule SET times=? WHERE date=?", (new_times, day))
+        else:
+            c.execute("INSERT INTO schedule (date, times) VALUES (?, ?)", (day, new_times))
         conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
         conn.close()
         await update.message.reply_text(f"✅ Для дня {day} оновлено години: {new_times}")
         context.user_data['step'] = None
@@ -691,22 +539,8 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             name, phone = fullinfo.strip(), "N/A"
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
+        c.execute("INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                  (user_id, name, phone, procedure, date, time, "Очікує підтвердження"))
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
@@ -728,14 +562,14 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Якщо хочеш — підтверди чи відміні запис, або запишися ще раз 👑",
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(keyboard)
-# [Зайва дужка видалена]
+        )
         await context.bot.send_message(
             chat_id=ADMIN_ID,
             text=f"""📥 Новий запис:
 ПІБ/Телефон: {name} / {phone}
 Процедура: {procedure}
 Дата: {date} о {time}"""
-# [Зайва дужка видалена]
+        )
         event_time = datetime.strptime(f"{date} {time}", "%d.%m %H:%M")
         remind_day = event_time - timedelta(days=1)
         remind_time = remind_day.replace(hour=10, minute=0, second=0, microsecond=0)
@@ -747,14 +581,14 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 'date',
                 run_date=remind_time,
                 args=[user_id, procedure, date, time, "day"]
-# [Зайва дужка видалена]
+            )
         if remind_2h > now:
             scheduler.add_job(
                 send_reminder,
                 'date',
                 run_date=remind_2h,
                 args=[user_id, procedure, date, time, "2h"]
-# [Зайва дужка видалена]
+            )
         scheduler.start()
         context.user_data.clear()
         return
@@ -776,7 +610,7 @@ async def send_reminder(user_id, procedure, date, time, mode="day"):
         await bot.send_message(
             chat_id=user_id,
             text=text
-# [Зайва дужка видалена]
+        )
     except Exception as e:
         print(f"Не вдалося надіслати нагадування: {e}")
 
@@ -788,178 +622,7 @@ def main():
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
 
-    app.add_handler(CommandHandler("stats", show_statistics))
-    app.add_handler(CommandHandler("search", search_client))
-
     app.run_polling()
 
 if __name__ == "__main__":
     main()
-
-
-
-# --- ДОДАНО: бонуси, VIP, пошук, статистика ---
-
-def init_db():
-    conn = sqlite3.connect('appointments.db')
-    c = conn.cursor()
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-    (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-    booking_id = c.lastrowid
-    conn.commit()
-    conn.close()
-    visits = update_client_visits(user_id, name, phone)
-    if visits >= 5:
-    await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-    (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-    booking_id = c.lastrowid
-    conn.commit()
-    conn.close()
-    visits = update_client_visits(user_id, name, phone)
-    if visits >= 5:
-    await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-    (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-    booking_id = c.lastrowid
-    conn.commit()
-    conn.close()
-    visits = update_client_visits(user_id, name, phone)
-    if visits >= 5:
-    await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-    (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-    booking_id = c.lastrowid
-    conn.commit()
-    conn.close()
-    visits = update_client_visits(user_id, name, phone)
-    if visits >= 5:
-    await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-    conn.commit()
-    conn.close()
-
-async def show_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID:
-        await update.message.reply_text("⛔ Доступно тільки адміну.")
-        return
-    conn = sqlite3.connect('appointments.db')
-    c = conn.cursor()
-
-    today = datetime.now().date()
-    week_ago = (today - timedelta(days=7)).strftime("%d.%m")
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-    proc_text = "\n".join([f"{i+1}. {p[0]} ({p[1]})" for i, p in enumerate(top_procedures)])
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-    client_text = "\n".join([f"{i+1}. {c[0]} — {c[1]} візитів" for i, c in enumerate(top_clients)])
-
-    conn.close()
-    text = (
-        f"📊 *Статистика салону:*\n\n"
-        f"👥 Записів за тиждень: {week_count}\n\n"
-        f"🔥 *Топ-процедури:*\n{proc_text}\n\n"
-        f"👑 *Топ-клієнти:*\n{client_text}"
-# [Зайва дужка видалена]
-    await update.message.reply_text(text, parse_mode="Markdown")
-
-async def search_client(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID:
-        await update.message.reply_text("⛔ Доступно тільки адміну.")
-        return
-    if not context.args:
-        await update.message.reply_text("🔍 Напишіть /search Ім'я або номер телефону")
-        return
-    keyword = " ".join(context.args).strip()
-    conn = sqlite3.connect('appointments.db')
-    c = conn.cursor()
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-    conn.close()
-    if result:
-        name, phone, visits = result
-        await update.message.reply_text(f"👤 {name}\n📱 {phone}\n⭐️ Візитів: {visits}")
-    else:
-        await update.message.reply_text("😔 Клієнта не знайдено")
-
-# Після кожного нового запису оновлюємо visits клієнта
-def update_client_visits(user_id, name, phone):
-    conn = sqlite3.connect('appointments.db')
-    c = conn.cursor()
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-    if row:
-        visits = row[0] + 1
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-    # [Видалено дублікати INSERT INTO bookings]
-# [Видалено обірвану VALUES частину]
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-# [Зайва дужка видалена]
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
-    conn.commit()
-    conn.close()
-    return visits
