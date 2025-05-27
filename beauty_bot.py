@@ -31,38 +31,38 @@ scheduler = BackgroundScheduler()
 def init_db():
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
+    c.execute(
+    "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
+    )
+    booking_id = c.lastrowid
+    conn.commit()
+    conn.close()
+    visits = update_client_visits(user_id, name, phone)
+    if visits >= 5:
+    await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
     """)
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
+    c.execute(
+    "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
+    )
+    booking_id = c.lastrowid
+    conn.commit()
+    conn.close()
+    visits = update_client_visits(user_id, name, phone)
+    if visits >= 5:
+    await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
     """)
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
+    c.execute(
+    "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
+    )
+    booking_id = c.lastrowid
+    conn.commit()
+    conn.close()
+    visits = update_client_visits(user_id, name, phone)
+    if visits >= 5:
+    await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
     """)
     conn.commit()
     conn.close()
@@ -810,49 +810,49 @@ if __name__ == "__main__":
 def init_db():
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
+    c.execute(
+    "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
+    )
+    booking_id = c.lastrowid
+    conn.commit()
+    conn.close()
+    visits = update_client_visits(user_id, name, phone)
+    if visits >= 5:
+    await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
     """)
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
+    c.execute(
+    "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
+    )
+    booking_id = c.lastrowid
+    conn.commit()
+    conn.close()
+    visits = update_client_visits(user_id, name, phone)
+    if visits >= 5:
+    await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
     """)
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
+    c.execute(
+    "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
+    )
+    booking_id = c.lastrowid
+    conn.commit()
+    conn.close()
+    visits = update_client_visits(user_id, name, phone)
+    if visits >= 5:
+    await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
     """)
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-        )
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        visits = update_client_visits(user_id, name, phone)
-        if visits >= 5:
-            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
+    c.execute(
+    "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
+    )
+    booking_id = c.lastrowid
+    conn.commit()
+    conn.close()
+    visits = update_client_visits(user_id, name, phone)
+    if visits >= 5:
+    await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
     """)
     conn.commit()
     conn.close()
