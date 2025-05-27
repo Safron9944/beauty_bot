@@ -51,12 +51,24 @@ def init_db():
     conn.close()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [
-        [InlineKeyboardButton("👑 Записатися на процедуру", callback_data='book')],
-        [InlineKeyboardButton("📋 Мої записи", callback_data='check_booking')],
-        [InlineKeyboardButton("📸 Instagram", callback_data='instagram')],
-        [InlineKeyboardButton("ℹ️ Допомога", callback_data='help')]
-    ]
+    user_id = update.effective_user.id
+    if user_id in ADMIN_IDS:
+        keyboard = [
+            [InlineKeyboardButton("👑 Записатися на процедуру", callback_data='book')],
+            [InlineKeyboardButton("📋 Мої записи", callback_data='check_booking')],
+            [InlineKeyboardButton("📸 Instagram", callback_data='instagram')],
+            [InlineKeyboardButton("ℹ️ Допомога", callback_data='help')],
+            [InlineKeyboardButton("🗓️ Календар (адміну)", callback_data='admin_calendar')],
+            [InlineKeyboardButton("🗑️ Видалити день (адміну)", callback_data='admin_delete_day')],
+            [InlineKeyboardButton("🛠️ Змінити графік", callback_data='admin_schedule')],
+        ]
+    else:
+        keyboard = [
+            [InlineKeyboardButton("👑 Записатися на процедуру", callback_data='book')],
+            [InlineKeyboardButton("📋 Мої записи", callback_data='check_booking')],
+            [InlineKeyboardButton("📸 Instagram", callback_data='instagram')],
+            [InlineKeyboardButton("ℹ️ Допомога", callback_data='help')]
+        ]
     await update.message.reply_text(
         "✨ Вітаю в beauty-боті! Тут кожна дівчина знаходить час для себе та свого образу 💖\n\n"
         "Обирай дію нижче — і гайда до краси! 🌸",
@@ -225,6 +237,18 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     user_id = query.from_user.id
 
+    # --- Для адміна окремі кнопки ---
+    if query.data == "admin_calendar" and user_id in ADMIN_IDS:
+        await calendar_handler(update, context)
+        return
+    if query.data == "admin_delete_day" and user_id in ADMIN_IDS:
+        await delete_day_handler(update, context)
+        return
+    if query.data == "admin_schedule" and user_id in ADMIN_IDS:
+        await schedule_handler(update, context)
+        return
+
+    # --- Для всіх ---
     if query.data == "help":
         await help_handler(update, context)
         return
@@ -263,7 +287,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn.close()
         await query.message.reply_text(f"День {del_day} прибрано з графіка для запису!")
         return
-    # ... Додай інші обробники кнопок за логікою твого бота ...
+    # --- Далі кнопки для покрокового запису клієнта та адміну за твоєю логікою ---
 
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -278,8 +302,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Натисни /start або вибери дію через меню!")
 
 async def send_reminder(user_id, procedure, date, time, mode="day"):
-    # (Додавай інтеграцію з Telegram для нагадування, якщо використовуєш APScheduler)
-    pass
+    pass  # якщо використовуєш APScheduler, встав тут логіку нагадувань
 
 set_schedule_handler = schedule_handler
 
