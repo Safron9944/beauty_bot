@@ -38,6 +38,12 @@ def init_db():
             times TEXT
         )
     """)
+    # Таблиця видалених днів
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS deleted_days (
+            date TEXT PRIMARY KEY
+        )
+    """)
     conn.commit()
     conn.close()
 
@@ -56,6 +62,40 @@ async def schedule_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Введіть графік у форматі:\n\n28.05: 14:00,15:00,16:00\n29.05: 15:00,16:00"
     )
     context.user_data['step'] = 'set_schedule'
+
+async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        await update.message.reply_text("Доступно тільки адміну.")
+        return
+    today = datetime.now().date()
+    dates = set()
+    for i in range(7):
+        d = today + timedelta(days=i)
+        dates.add(d.strftime("%d.%m"))
+    # Додаємо ручні дати (на всяк випадок)
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+    c.execute("SELECT DISTINCT date FROM schedule")
+    for row in c.fetchall():
+        dates.add(row[0])
+    conn.close()
+    # Видалені дати (щоб підсвітити?)
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+    c.execute("SELECT date FROM deleted_days")
+    deleted = {row[0] for row in c.fetchall()}
+    conn.close()
+    # Показуємо лише не видалені
+    dates = [d for d in dates if d not in deleted]
+    dates = sorted(list(dates), key=lambda x: datetime.strptime(x + f".{datetime.now().year}", "%d.%m.%Y"))
+    if not dates:
+        await update.message.reply_text("Немає днів для видалення.")
+        return
+    keyboard = [
+        [InlineKeyboardButton(date, callback_data=f"delday_{date}")] for date in dates
+    ]
+    await update.message.reply_text("Оберіть день для видалення (він зникне для запису):", reply_markup=InlineKeyboardMarkup(keyboard))
+    context.user_data['step'] = None
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -83,12 +123,22 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'proc_lam_lashes': 'Ламінування вій'
         }
         context.user_data['procedure'] = proc_map[query.data]
-        # --- Кнопки дат на 14 днів ---
-        dates = []
+        # --- Кнопки дат на 7 днів, окрім видалених ---
         today = datetime.now().date()
-        for i in range(14):
+        dates = []
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("SELECT date FROM deleted_days")
+        deleted = {row[0] for row in c.fetchall()}
+        conn.close()
+        for i in range(7):
             d = today + timedelta(days=i)
-            dates.append(d.strftime("%d.%m"))
+            date_str = d.strftime("%d.%m")
+            if date_str not in deleted:
+                dates.append(date_str)
+        if not dates:
+            await query.message.reply_text("Немає доступних днів для запису.")
+            return
         keyboard = [
             [InlineKeyboardButton(date, callback_data=f'date_{date}')] for date in dates
         ]
@@ -107,7 +157,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if row:
             times = [t.strip() for t in row[0].split(',')]
         else:
-            # Автоматично (будні/вихідні)
             day = datetime.strptime(date + f".{datetime.now().year}", "%d.%m.%Y").weekday()
             if day < 5:
                 times = [f"{h:02d}:00" for h in range(14, 19)]
@@ -140,6 +189,15 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['time'] = time
         await query.message.reply_text("Введіть ПІБ та номер телефону через кому (наприклад: Іваненко Марія, 0931234567):")
         context.user_data['step'] = 'get_fullinfo'
+
+    elif query.data.startswith('delday_') and query.from_user.id == ADMIN_ID:
+        date = query.data.replace('delday_', '')
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("INSERT OR IGNORE INTO deleted_days (date) VALUES (?)", (date,))
+        conn.commit()
+        conn.close()
+        await query.message.reply_text(f"День {date} видалено з графіка. Клієнти більше не побачать цей день для запису.")
 
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_step = context.user_data.get('step')
@@ -190,7 +248,6 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
-        # Адміну повідомлення
         await context.bot.send_message(
             chat_id=ADMIN_ID,
             text=f"""📥 Новий запис:
@@ -199,7 +256,6 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 Дата: {date} о {time}"""
         )
 
-        # Нагадування за добу о 10:00
         event_time = datetime.strptime(f"{date} {time}", "%d.%m %H:%M")
         remind_day = event_time - timedelta(days=1)
         remind_time = remind_day.replace(hour=10, minute=0, second=0, microsecond=0)
@@ -245,7 +301,6 @@ async def send_reminder(user_id, procedure, date, time):
     except Exception as e:
         print(f"Не вдалося надіслати нагадування: {e}")
 
-# Додатково: команда /mybookings (записи для user_id)
 async def mybookings_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     conn = sqlite3.connect('appointments.db')
@@ -268,6 +323,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("schedule", schedule_handler))
     app.add_handler(CommandHandler("set_schedule", set_schedule_handler))
+    app.add_handler(CommandHandler("delete_day", delete_day_handler))
     app.add_handler(CommandHandler("mybookings", mybookings_handler))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
