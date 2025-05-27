@@ -32,7 +32,7 @@ def init_db():
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
     (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
     )
     booking_id = c.lastrowid
@@ -42,7 +42,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)",
     if visits >= 5:
     await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
     (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
     )
     booking_id = c.lastrowid
@@ -52,7 +52,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)",
     if visits >= 5:
     await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
     (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
     )
     booking_id = c.lastrowid
@@ -120,7 +120,7 @@ async def edit_schedule_handler(update: Update, context: ContextTypes.DEFAULT_TY
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -153,7 +153,7 @@ async def edit_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -188,7 +188,7 @@ async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -202,7 +202,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)",
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -236,7 +236,7 @@ async def calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -274,7 +274,7 @@ async def week_calendar_handler(update: Update, context: ContextTypes.DEFAULT_TY
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -347,7 +347,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -394,7 +394,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)",
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -430,7 +430,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)",
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -451,7 +451,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)",
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -495,7 +495,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)",
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -526,7 +526,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)",
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -573,7 +573,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)",
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -583,7 +583,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)",
         if visits >= 5:
             await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -605,7 +605,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)",
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -615,7 +615,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)",
         if visits >= 5:
             await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -646,7 +646,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -657,7 +657,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)",
             await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
         if exists:
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -667,7 +667,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)",
         if visits >= 5:
             await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -696,7 +696,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)",
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -808,7 +808,7 @@ def init_db():
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
     (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
     )
     booking_id = c.lastrowid
@@ -818,7 +818,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)",
     if visits >= 5:
     await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
     (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
     )
     booking_id = c.lastrowid
@@ -828,7 +828,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)",
     if visits >= 5:
     await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
     (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
     )
     booking_id = c.lastrowid
@@ -838,7 +838,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)",
     if visits >= 5:
     await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
     (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
     )
     booking_id = c.lastrowid
@@ -860,7 +860,7 @@ async def show_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE):
     today = datetime.now().date()
     week_ago = (today - timedelta(days=7)).strftime("%d.%m")
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -870,7 +870,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)",
         if visits >= 5:
             await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -881,7 +881,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)",
             await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
     proc_text = "\n".join([f"{i+1}. {p[0]} ({p[1]})" for i, p in enumerate(top_procedures)])
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -912,7 +912,7 @@ async def search_client(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -933,7 +933,7 @@ def update_client_visits(user_id, name, phone):
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -945,7 +945,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)",
     if row:
         visits = row[0] + 1
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
@@ -955,7 +955,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)",
         if visits >= 5:
             await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
     # [Видалено дублікати INSERT INTO bookings]
-VALUES (?, ?, ?, ?, ?, ?, ?)",
+# [Видалено обірвану VALUES частину]
             (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
         )
         booking_id = c.lastrowid
