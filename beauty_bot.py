@@ -540,6 +540,10 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
         c.execute("INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        update_client_visits(user_id, name, phone)
+        visits = update_client_visits(user_id, name, phone)
+        if visits >= 5:
+            await update.message.reply_text("🎁 Ти вже заслужила подарунок за свою лояльність! Напиши мені, щоб отримати сюрприз 💖")
                   (user_id, name, phone, procedure, date, time, "Очікує підтвердження"))
         booking_id = c.lastrowid
         conn.commit()
@@ -621,6 +625,10 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
+
+    app.add_handler(CommandHandler("stats", show_statistics))
+    app.add_handler(CommandHandler("search", search_client))
+
 
     app.run_polling()
 
