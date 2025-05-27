@@ -3,8 +3,6 @@ import os
 
 load_dotenv()
 TOKEN = os.getenv('TELEGRAM_TOKEN')
-
-# Підтримка кількох адміністраторів через кому (наприклад 1035792183,474236378)
 ADMIN_IDS = [int(i.strip()) for i in os.environ["ADMIN_IDS"].split(",")]
 print("DEBUG: ADMIN_IDS from env =", ADMIN_IDS)
 
@@ -222,16 +220,66 @@ async def mybookings_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     else:
         await update.message.reply_text("Записів не знайдено. Час оновити свій образ! 💄")
 
-# ТУТ ВСТАВ СВОЇ ФУНКЦІЇ button_handler, text_handler, send_reminder  
-# (їхній вміст не змінюється, тільки у всіх перевірках '== ADMIN_ID' заміни на 'in ADMIN_IDS')
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
 
-# Наприклад:
-# async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-#     ... (Твій код з перевірками через in ADMIN_IDS)
-# async def text_handler(...):
-#     ...
-# async def send_reminder(...):
-#     ...
+    if query.data == "help":
+        await help_handler(update, context)
+        return
+    if query.data == "instagram":
+        await instagram_handler(update, context)
+        return
+    if query.data == "check_booking":
+        await mybookings_handler(update, context)
+        return
+    if query.data == "book":
+        context.user_data['step'] = 'choose_procedure'
+        keyboard = [
+            [InlineKeyboardButton("Корекція брів", callback_data='proc_brows_correction')],
+            [InlineKeyboardButton("Фарбування брів", callback_data='proc_brows_paint')],
+            [InlineKeyboardButton("Ламінування брів", callback_data='proc_brows_lamination')],
+            [InlineKeyboardButton("Ламінування вій", callback_data='proc_lashes_lamination')],
+            [InlineKeyboardButton("⬅️ Назад", callback_data='main_menu')]
+        ]
+        await query.message.reply_text("✨ Обери свою бʼюті-процедуру! Серденьком обирай те, що подобається найбільше — або натисни ⬅️ щоб повернутись до мрій!", reply_markup=InlineKeyboardMarkup(keyboard))
+        return
+    if query.data == "main_menu":
+        await start(update, context)
+        return
+    if query.data.startswith("proc_"):
+        context.user_data['procedure'] = query.data.replace("proc_", "").replace("_", " ").title()
+        context.user_data['step'] = 'choose_date'
+        await query.message.reply_text("🌸 Який день зробить тебе ще красивішою? Вибирай і натискай сердечко! Або повернись на крок назад, якщо захочеш змінити процедуру 💖")
+        # Тут має бути реалізація вибору дати
+        return
+    if query.data.startswith("delday_") and user_id in ADMIN_IDS:
+        del_day = query.data.replace("delday_", "")
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("INSERT OR IGNORE INTO deleted_days (date) VALUES (?)", (del_day,))
+        conn.commit()
+        conn.close()
+        await query.message.reply_text(f"День {del_day} прибрано з графіка для запису!")
+        return
+    # ... Додай інші обробники кнопок за логікою твого бота ...
+
+async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    step = context.user_data.get('step')
+
+    if step == 'set_schedule' and user_id in ADMIN_IDS:
+        # Реалізуй збереження графіка в базу
+        await update.message.reply_text("Графік змінено!")
+        context.user_data['step'] = None
+        return
+    # ... додай інші кроки для покрокового запису клієнта ...
+    await update.message.reply_text("Натисни /start або вибери дію через меню!")
+
+async def send_reminder(user_id, procedure, date, time, mode="day"):
+    # (Додавай інтеграцію з Telegram для нагадування, якщо використовуєш APScheduler)
+    pass
 
 set_schedule_handler = schedule_handler
 
