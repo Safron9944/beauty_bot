@@ -319,12 +319,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data.startswith("time_"):
         time = query.data.replace("time_", "")
         context.user_data['time'] = time
-        keyboard = [
-            [InlineKeyboardButton("⬅️ До вибору часу", callback_data='back_to_time')]
-        ]
+        # Змінений текст без кнопки "Назад"
         await query.message.reply_text(
-            "💕 Твоя краса вже майже у мене в руках! Залиш, будь ласка, ім’я та телефон, щоб я могла тобі написати або зателефонувати ✨\n\nМожеш повернутись ⬅️ до вибору часу, якщо щось передумала — я тут, щоб все було ідеально! 🌷\n\nДякую, що обираєш мене для своїх преображень! 😇",
-            reply_markup=InlineKeyboardMarkup(keyboard),
+            "💕 Твоя краса вже майже у мене в руках! Залиш, будь ласка, Ім'я, прізвище та номер телефону, щоб я могла тобі написати або зателефонувати ✨",
             parse_mode='Markdown'
         )
         context.user_data['step'] = 'get_fullinfo'
@@ -415,39 +412,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard.append([InlineKeyboardButton("⬅️ Назад до процедур", callback_data='back_to_procedure')])
         await query.message.reply_text(
             "🌸 Який день зробить тебе ще прекраснішою? Обирай сердечко на календарі й лови натхнення! Якщо раптом захочеш змінити процедуру — просто тисни ⬅️ і повертайся до вибору, бо твоя краса важлива! ✨💐",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
-        return
-
-    # Назад до часу
-    if query.data == 'back_to_time':
-        date = context.user_data.get('date')
-        conn = sqlite3.connect('appointments.db')
-        c = conn.cursor()
-        c.execute("SELECT times FROM schedule WHERE date = ?", (date,))
-        row = c.fetchone()
-        conn.close()
-        if row:
-            times = [t.strip() for t in row[0].split(',')]
-        else:
-            day = datetime.strptime(date + f".{datetime.now().year}", "%d.%m.%Y").weekday()
-            if day < 5:
-                times = [f"{h:02d}:00" for h in range(14, 19)]
-            else:
-                times = [f"{h:02d}:00" for h in range(11, 19)]
-        conn = sqlite3.connect('appointments.db')
-        c = conn.cursor()
-        c.execute("SELECT time FROM bookings WHERE date = ?", (date,))
-        booked_times = [row[0] for row in c.fetchall()]
-        conn.close()
-        free_times = [t for t in times if t not in booked_times]
-        keyboard = [
-            [InlineKeyboardButton(f"🕒 {time} | Моє ідеальне віконце 💖", callback_data=f'time_{time}')]
-            for time in free_times
-        ]
-        keyboard.append([InlineKeyboardButton("⬅️ Назад до календаря", callback_data='back_to_date')])
-        await query.message.reply_text(
-            "👑 Час бути зіркою! Всі ідеальні годинки чекають саме тебе, обирай найзручніше ❤️\n\nЯкщо передумала — натискай ⬅️ та змінюй дату. Ми зробимо твій день особливим! 💫",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
         return
