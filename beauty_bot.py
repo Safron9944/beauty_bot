@@ -49,23 +49,18 @@ def init_db():
     conn.commit()
     conn.close()
 
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-
-    # Вибір процедури з кнопкою назад
-    if query.data == 'book' or query.data == 'back_to_procedure':
-        keyboard = [
-            [InlineKeyboardButton("✨ Корекція брів (ідеальна форма)", callback_data='proc_brows')],
-            [InlineKeyboardButton("🎨 Фарбування + корекція брів", callback_data='proc_tint_brows')],
-            [InlineKeyboardButton("🌟 Ламінування брів (WOW-ефект)", callback_data='proc_lam_brows')],
-            [InlineKeyboardButton("👁️ Ламінування вій (виразний погляд)", callback_data='proc_lam_lashes')],
-            [InlineKeyboardButton("⬅️ Назад до меню", callback_data='back_to_menu')]
-        ]
-        await query.message.reply_text(
-            "✨ Обери свою бʼюті-процедуру, красуне! Серденьком познач ту, яка надихає найбільше — або натискай ⬅️ щоб повернутись до мрій 🌈💖\n\nОбіцяю, твоя краса засяє ще яскравіше! 🫶",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [
+        [InlineKeyboardButton("👑 Записатися на процедуру", callback_data='book')],
+        [InlineKeyboardButton("📋 Мої записи", callback_data='check_booking')],
+        [InlineKeyboardButton("📸 Instagram", callback_data='instagram')],
+        [InlineKeyboardButton("ℹ️ Допомога", callback_data='help')]
+    ]
+    await update.message.reply_text(
+        "✨ Вітаю в beauty-боті! Тут кожна дівчина знаходить час для себе та свого образу 💖\n\n"
+        "Обирай дію нижче — і гайда до краси! 🌸",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
         context.user_data.clear()
         return
 
