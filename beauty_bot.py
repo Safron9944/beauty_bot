@@ -164,28 +164,37 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.callback_query.edit_message_text(welcome, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
 # --- АДМІН СЕРВІС ---
-async def admin_service_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
+# --- АДМІН СЕРВІС ---
+async def manage_schedule_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    if user_id != ADMIN_ID:
-        await query.answer("Доступно тільки адміну", show_alert=True)
-        return
     keyboard = [
-        [InlineKeyboardButton("🗓️ Редагувати графік по днях", callback_data='edit_schedule')],
-        [InlineKeyboardButton("📊 Статистика", callback_data='admin_stats')],
-        [InlineKeyboardButton("💤 Вихідний день", callback_data='delete_day')],
+        [InlineKeyboardButton("📆 Редагувати по днях", callback_data='edit_schedule')],
+        [InlineKeyboardButton("💤 Виставити вихідний", callback_data='delete_day')],
         [InlineKeyboardButton("📅 Календар на сьогодні", callback_data='calendar')],
         [InlineKeyboardButton("📆 Календар на тиждень", callback_data='weekcalendar')],
-        [InlineKeyboardButton("💰 Редагувати прайс", callback_data='edit_price')],
-        [InlineKeyboardButton("⬅️ Головне меню", callback_data='back_to_menu')]
+        [InlineKeyboardButton("⬅️ Назад", callback_data="admin_service")]
     ]
     text = (
-        "⚙️ *Адмін-сервіс*\n\n"
-        "Керуйте розкладом, дивіться всі записи і тримайте красу під контролем 👑\n"
-        "Обирайте дію:"
+        "🗓️ *Керування графіком*\n\n"
+        "Оберіть дію:\n"
+        "— Редагувати години роботи\n"
+        "— Виставити вихідний\n"
+        "— Переглянути записи на сьогодні або на тиждень"
     )
     await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
+# --- ГОЛОВНЕ МЕНЮ ДЛЯ АДМІНА ---
+async def admin_service_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [
+        [InlineKeyboardButton("Керування графіком", callback_data="manage_schedule")],
+        [InlineKeyboardButton("Редагувати прайс", callback_data="edit_price")],
+        [InlineKeyboardButton("Статистика", callback_data="admin_stats")],
+        [InlineKeyboardButton("⬅️ Головне меню", callback_data="back_to_menu")]
+    ]
+    text = "⚙️ *Адмін-сервіс*\n\nОберіть дію:"
+    await update.callback_query.edit_message_text(
+        text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown"
+    )
 
 # --- РЕДАГУВАННЯ ГРАФІКУ (АДМІН) ---
 async def edit_schedule_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -206,7 +215,7 @@ async def edit_schedule_handler(update: Update, context: ContextTypes.DEFAULT_TY
         [InlineKeyboardButton(f"🗓️ {date} {'✅' if date in scheduled_dates else '➕'}", callback_data=f'edit_day_{date}')]
         for date in dates
     ]
-    keyboard.append([InlineKeyboardButton("⬅️ Назад до адмін-сервісу", callback_data="admin_service")])
+    keyboard.append([InlineKeyboardButton("⬅️ Назад", callback_data="manage_schedule")])
     await query.edit_message_text(
         "🌈 Обери день для редагування або додавання часу:\n"
         "— Натисни на потрібний день\n"
@@ -277,14 +286,14 @@ async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if not available_dates:
         await query.edit_message_text(
             "🌺 Немає доступних днів для вихідного (усі вже вихідні або дати закінчились).",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Назад до адмін-сервісу", callback_data="admin_service")]])
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Назад", callback_data="manage_schedule")]])
         )
         return
 
     keyboard = [
         [InlineKeyboardButton(f"❌ {date}", callback_data=f"delday_{date}")] for date in available_dates
     ]
-    keyboard.append([InlineKeyboardButton("⬅️ Назад до адмін-сервісу", callback_data="admin_service")])
+    keyboard.append([InlineKeyboardButton("⬅️ Назад", callback_data="manage_schedule")])
 
     await query.edit_message_text(
         "💤 Обери день для вихідного (цей день стане недоступним для запису):",
@@ -306,7 +315,7 @@ async def calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn.close()
     if not rows:
         await update.callback_query.edit_message_text("Сьогодні записів немає 💤.",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")]])
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Назад", callback_data="manage_schedule")]])
         )
         return
     text = f"📅 Записи на {today.strftime('%d.%m.%Y')}:\n\n"
@@ -318,7 +327,7 @@ async def calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Статус: {status}\n\n"
         )
     await update.callback_query.edit_message_text(text,
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")]])
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Назад", callback_data="manage_schedule")]])
     )
 
 async def week_calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -337,7 +346,7 @@ async def week_calendar_handler(update: Update, context: ContextTypes.DEFAULT_TY
     conn.close()
     if not rows:
         await update.callback_query.edit_message_text("На цей тиждень записів немає 💤.",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")]])
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Назад", callback_data="manage_schedule")]])
         )
         return
     text = "📆 Записи на цей тиждень:\n\n"
@@ -349,7 +358,7 @@ async def week_calendar_handler(update: Update, context: ContextTypes.DEFAULT_TY
             f"Статус: {status}\n\n"
         )
     await update.callback_query.edit_message_text(text,
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")]])
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Назад", callback_data="manage_schedule")]])
     )
 
 # --- CALLBACK HANDLER ---
@@ -357,6 +366,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
+
+    if query.data == "manage_schedule":
+        await manage_schedule_handler(update, context)
+        return
 
     if query.data == "admin_service":
         await admin_service_handler(update, context)
@@ -370,6 +383,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         price_text = get_price_text()
         await query.edit_message_text(price_text, parse_mode="Markdown")
         return
+
     # Ось тут додаєш блоки для редагування прайсу
     if query.data == 'edit_price':
         conn = sqlite3.connect('appointments.db')
@@ -522,7 +536,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn.close()
         await query.edit_message_text(
             f"✅ День {date} зроблено вихідним! Більше недоступний для запису.",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")]])
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Назад", callback_data="manage_schedule")]])
         )
         return
 
@@ -932,8 +946,10 @@ async def set_day_off(update: Update, context: ContextTypes.DEFAULT_TYPE, date):
     conn.commit()
     conn.close()
     await update.callback_query.edit_message_text(
-        f"✅ День {date} зроблено вихідним! Більше недоступний для запису.",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")]])
+        "Сьогодні записів немає 💤.",
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("⬅️ Назад", callback_data="manage_schedule")]]
+        )
     )
 
 def main():
