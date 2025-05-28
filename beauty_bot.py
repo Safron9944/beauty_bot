@@ -265,7 +265,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if query.data == 'delete_day':
-        await choose_day_for_dayoff(update, context)
+        await delete_day_handler(update, context)
         return
 
     if query.data == 'admin_stats':
@@ -309,10 +309,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if query.data == "weekcalendar":
         await week_calendar_handler(update, context)
-        return
-
-    if query.data == 'delete_day':
-        await choose_day_for_dayoff(update, context)
         return
 
     if query.data.startswith("delday_") and user_id == ADMIN_ID:
