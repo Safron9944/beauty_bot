@@ -81,6 +81,10 @@ def init_db():
             ("Фарбування вій", 150),
         ]
         c.executemany("INSERT INTO price_list (name, price) VALUES (?, ?)", services)
+    try:
+        c.execute("ALTER TABLE bookings ADD COLUMN note TEXT")
+    except sqlite3.OperationalError:
+        pass
     conn.commit()
     conn.close()
 
@@ -421,6 +425,40 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['step'] = 'update_price'
         return
 
+    if query.data == 'check_booking':
+        user_id = query.from_user.id
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("SELECT id, procedure, date, time, status, note FROM bookings WHERE user_id=?", (user_id,))
+        rows = c.fetchall()
+        conn.close()
+        if rows:
+            for rec in rows:
+                booking_id, procedure, date, time, status, note = rec
+                msg = f"✨ {procedure}\n🗓️ {date} о {time}\nСтатус: *{status}*"
+                # Додаємо примітку тільки якщо вона є
+                if note:
+                    msg += f"\n📝 Примітка: _{note}_"
+                buttons = []
+                if status == "Очікує підтвердження":
+                    buttons.append(InlineKeyboardButton("✅ Підтвердити", callback_data=f"confirm_{booking_id}"))
+                    buttons.append(InlineKeyboardButton("❌ Відмінити", callback_data=f"cancel_{booking_id}"))
+                # Додаємо кнопку примітки тільки для адміна
+                if user_id == ADMIN_ID:
+                    buttons.append(InlineKeyboardButton("📝 Примітка", callback_data=f"note_{booking_id}"))
+                reply_markup = InlineKeyboardMarkup([buttons]) if buttons else None
+                await query.message.reply_text(msg, reply_markup=reply_markup, parse_mode="Markdown")
+        else:
+            await query.message.reply_text("Записів не знайдено. Час оновити свій образ! 💄")
+        return
+
+    if query.data.startswith('note_'):
+        booking_id = int(query.data.replace('note_', ''))
+        context.user_data['note_booking_id'] = booking_id
+        await query.message.reply_text("Введіть примітку для цього запису:")
+        context.user_data['step'] = 'add_note'
+        return
+
     if query.data.startswith('edit_day_'):
         await edit_day_handler(update, context)
         return
@@ -733,7 +771,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
         return
-    
+
     if query.data.startswith('cancel_'):
         booking_id = int(query.data.replace('cancel_', ''))
         conn = sqlite3.connect('appointments.db')
@@ -756,6 +794,19 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_step = context.user_data.get('step')
     text = update.message.text
+
+    if user_step == 'add_note' and update.effective_user.id == ADMIN_ID:
+        booking_id = context.user_data['note_booking_id']
+        note_text = update.message.text
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("UPDATE bookings SET note=? WHERE id=?", (note_text, booking_id))
+        conn.commit()
+        conn.close()
+        await update.message.reply_text("Примітку збережено! 📝")
+        context.user_data['step'] = None
+        context.user_data['note_booking_id'] = None
+        return
 
     # --- ЗМІНА ЦІНИ В ПРАЙСІ ---
     if user_step == 'update_price' and update.effective_user.id == ADMIN_ID:
