@@ -92,29 +92,49 @@ def get_price_text():
     rows = c.fetchall()
     conn.close()
 
-    # Групуємо по категоріях
-    cats = {
-        "Брови": [],
-        "Вії": [],
-        "Інше": []
+    emoji_map = {
+        "Корекція брів": "✏️",
+        "Фарбування брів": "🎨",
+        "Ламінування брів": "💎",
+        "фарбування": "🎨",
+        "Ламінування вій": "🌟",
+        "Ботокс": "💧",
+        "Ваксинг": "🧊",
+        "Фарбування вій": "👁️"
     }
+
+    cats = {
+        "Брови": {"emoji": "👁️", "items": []},
+        "Вії": {"emoji": "🌸", "items": []},
+        "Інше": {"emoji": "💫", "items": []}
+    }
+
     for name, price in rows:
+        decorated = name
+        for key in emoji_map:
+            if key.lower() in name.lower():
+                decorated = f"{emoji_map[key]} {decorated}"
         if "брів" in name or "Бров" in name:
-            cats["Брови"].append((name, price))
+            cats["Брови"]["items"].append((decorated, price))
         elif "Ві" in name or "вій" in name:
-            cats["Вії"].append((name, price))
+            cats["Вії"]["items"].append((decorated, price))
         else:
-            cats["Інше"].append((name, price))
+            cats["Інше"]["items"].append((decorated, price))
 
     txt = "💎 *Прайс-лист Safroniuk Brows & Lashes*\n\n"
     for k in cats:
-        if cats[k]:
-            txt += f"*{k}:*\n"
-            for n, p in cats[k]:
-                txt += f"• {n} — {p} грн\n"
+        if cats[k]["items"]:
+            txt += f"{cats[k]['emoji']} *{k}:*\n"
+            for n, p in cats[k]["items"]:
+                txt += f"   └─ {n} — *{p} грн*\n"
             txt += "\n"
-    txt += "☎️ *Телефон для запису:* +380976853623\nInstagram: @safroniuk.brows.lashes"
+    txt += "📲 *Запис і консультація:*\n"
+    txt += "• Телефон: +380976853623\n\n"
+    txt += "🔗 *Instagram:*\n"
+    txt += "• @safroniuk.brows.lashes\n"
+    txt += "https://www.instagram.com/safroniuk_brows_lashes\n"
     return txt
+
 
 # --- ГОЛОВНЕ МЕНЮ ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
