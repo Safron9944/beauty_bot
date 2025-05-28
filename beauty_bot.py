@@ -105,7 +105,10 @@ async def admin_service_handler(update: Update, context: ContextTypes.DEFAULT_TY
         "Керуйте розкладом, дивіться всі записи і тримайте красу під контролем 👑\n"
         "Обирайте дію:"
     )
-    await query.edit_message_text(text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
+    await query.edit_message_text(
+        f"Вибрані години: {selected}\nНатискай на час, щоб додати або прибрати його зі списку, або введи свій.",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
 # --- РЕДАГУВАННЯ ГРАФІКУ (АДМІН) ---
 async def edit_schedule_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
