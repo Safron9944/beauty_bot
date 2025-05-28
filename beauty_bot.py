@@ -193,6 +193,7 @@ async def admin_service_handler(update: Update, context: ContextTypes.DEFAULT_TY
         [InlineKeyboardButton("🗓️ Керування графіком", callback_data="manage_schedule")],
         [InlineKeyboardButton("💸 Редагувати прайс", callback_data="edit_price")],
         [InlineKeyboardButton("📊 Статистика", callback_data="admin_stats")],
+        [InlineKeyboardButton("👥 Клієнтська база", callback_data="client_base")],
         [InlineKeyboardButton("⬅️ Головне меню", callback_data="back_to_menu")]
     ]
     text = (
@@ -377,6 +378,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if query.data == "manage_schedule":
         await manage_schedule_handler(update, context)
+        return
+
+    if query.data == 'client_base':
+        await query.edit_message_text(
+            "🔎 Введіть *номер телефону* або *ім'я/прізвище* для пошуку клієнта:",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")]])
+        )
+        context.user_data['step'] = 'client_search'
         return
 
     if query.data == "admin_service":
@@ -806,6 +817,56 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Примітку збережено! 📝")
         context.user_data['step'] = None
         context.user_data['note_booking_id'] = None
+        return
+
+    if user_step == 'client_search' and update.effective_user.id == ADMIN_ID:
+        search = update.message.text.strip().lower()
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("""
+                  SELECT user_id, name, phone, MAX(date), MAX(time)
+                  FROM bookings
+                  WHERE LOWER(name) LIKE ?
+                     OR phone LIKE ?
+                  GROUP BY user_id
+                  ORDER BY MAX(date) DESC LIMIT 10
+                  """, (f"%{search}%", f"%{search}%"))
+        rows = c.fetchall()
+        conn.close()
+
+        if not rows:
+            await update.message.reply_text("Не знайдено жодного клієнта. Спробуйте інший запит.")
+            context.user_data['step'] = None
+            return
+
+        for user_id, name, phone, last_date, last_time in rows:
+            # Дістаємо останню примітку цього клієнта (user_id)
+            conn = sqlite3.connect('appointments.db')
+            c = conn.cursor()
+            c.execute("""
+                      SELECT note
+                      FROM bookings
+                      WHERE user_id = ?
+                        AND note IS NOT NULL
+                        AND note != ''
+                      ORDER BY id DESC LIMIT 1
+                      """, (user_id,))
+            note_row = c.fetchone()
+            conn.close()
+            note = note_row[0] if note_row else None
+
+            msg = (
+                f"👤 *{name}*\n"
+                f"📱 `{phone}`\n"
+                f"Останній запис: {last_date or '-'} о {last_time or '-'}"
+            )
+            if note:
+                msg += f"\n📝 Примітка: _{note}_"
+            await update.message.reply_text(
+                msg,
+                parse_mode="Markdown"
+            )
+        context.user_data['step'] = None
         return
 
     # --- ЗМІНА ЦІНИ В ПРАЙСІ ---
