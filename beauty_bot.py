@@ -163,30 +163,33 @@ async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if user_id != ADMIN_ID:
         await query.answer("Доступно тільки адміну", show_alert=True)
         return
+
     today = datetime.now().date()
-    dates = set()
-    conn = sqlite3.connect('appointments.db')
-    c = conn.cursor()
-    c.execute("SELECT DISTINCT date FROM schedule")
-    for row in c.fetchall():
-        dates.add(row[0])
-    conn.close()
+    # Вибираємо найближчі 10 днів
+    all_dates = [(today + timedelta(days=i)).strftime("%d.%m") for i in range(10)]
+
+    # Беремо дати, які вже видалені
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
     c.execute("SELECT date FROM deleted_days")
     deleted = {row[0] for row in c.fetchall()}
     conn.close()
-    dates = [d for d in dates if d not in deleted]
-    dates = sorted(list(dates), key=lambda x: datetime.strptime(x + f".{datetime.now().year}", "%d.%m.%Y"))
-    if not dates:
-        await query.edit_message_text("🌺 Немає днів для видалення.",
+
+    # Залишаємо лише ті, що ще не вихідні
+    available_dates = [d for d in all_dates if d not in deleted]
+
+    if not available_dates:
+        await query.edit_message_text(
+            "🌺 Немає доступних днів для вихідного (усі вже вихідні або дати закінчились).",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Назад до адмін-сервісу", callback_data="admin_service")]])
         )
         return
+
     keyboard = [
-        [InlineKeyboardButton(f"❌ {date}", callback_data=f"delday_{date}")] for date in dates
+        [InlineKeyboardButton(f"❌ {date}", callback_data=f"delday_{date}")] for date in available_dates
     ]
     keyboard.append([InlineKeyboardButton("⬅️ Назад до адмін-сервісу", callback_data="admin_service")])
+
     await query.edit_message_text(
         "💤 Обери день для вихідного (цей день стане недоступним для запису):",
         reply_markup=InlineKeyboardMarkup(keyboard)
