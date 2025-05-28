@@ -138,23 +138,27 @@ async def edit_schedule_handler(update: Update, context: ContextTypes.DEFAULT_TY
 async def edit_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     day = query.data.replace('edit_day_', '')
-    conn = sqlite3.connect('appointments.db')
-    c = conn.cursor()
-    c.execute("SELECT times FROM schedule WHERE date = ?", (day,))
-    row = c.fetchone()
-    conn.close()
-    times = row[0] if row else ""
     context.user_data['edit_day'] = day
-    text = (
-        f"🗓️ *{day}*\n"
-        "Введіть години для цього дня через кому (наприклад: 10:00,11:30,12:00):\n"
-        f"Поточний графік: {times if times else 'Немає'}"
-    )
+    context.user_data['chosen_times'] = []  # для мультивибору
+
+    # Визначаємо тип дня: будень чи вихідний
+    weekday = datetime.strptime(day + f".{datetime.now().year}", "%d.%m.%Y").weekday()
+    if weekday < 5:
+        times = [f"{h:02d}:00" for h in range(14, 19)]
+    else:
+        times = [f"{h:02d}:00" for h in range(11, 19)]
+
+    # Кнопки для вибору годин
+    keyboard = [[InlineKeyboardButton(time, callback_data=f"settime_{time}")] for time in times]
+    keyboard.append([InlineKeyboardButton("Ввести свої години", callback_data="custom_time")])
+    keyboard.append([InlineKeyboardButton("⬅️ Дні", callback_data="edit_schedule")])
+
     await query.edit_message_text(
-        text, parse_mode='Markdown',
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Дні", callback_data="edit_schedule")]])
+        f"🗓️ *{day}*\nВиберіть години для цього дня (натискай по черзі всі потрібні, або введи свої):",
+        parse_mode='Markdown',
+        reply_markup=InlineKeyboardMarkup(keyboard)
     )
-    context.user_data['step'] = 'edit_times'
+    context.user_data['step'] = 'choose_times'
 
 # --- ІНШІ АДМІН ФУНКЦІЇ ---
 async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -275,9 +279,50 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await admin_stats_handler(update, context)
         return
 
-    if query.data.startswith('stats_'):
-        period = query.data.replace('stats_', '')
-        await show_stats_for_period(update, context, period)
+    if query.data.startswith("settime_"):
+        time = query.data.replace("settime_", "")
+        chosen = context.user_data.get('chosen_times', [])
+        if time not in chosen:
+            chosen.append(time)
+            context.user_data['chosen_times'] = chosen
+        # Додаємо ще кнопку "Зберегти"
+        selected = ', '.join(chosen)
+        keyboard = [
+            [InlineKeyboardButton("Зберегти", callback_data="save_times")],
+            [InlineKeyboardButton("⬅️ Дні", callback_data="edit_schedule")]
+        ]
+        await query.edit_message_text(
+            f"Вибрані години: {selected}\nМожеш ще натискати години, або натисни 'Зберегти'",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return
+
+    if query.data == "save_times":
+        day = context.user_data.get('edit_day')
+        times = context.user_data.get('chosen_times', [])
+        times_str = ",".join(times)
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("SELECT id FROM schedule WHERE date = ?", (day,))
+        exists = c.fetchone()
+        if exists:
+            c.execute("UPDATE schedule SET times=? WHERE date=?", (times_str, day))
+        else:
+            c.execute("INSERT INTO schedule (date, times) VALUES (?, ?)", (day, times_str))
+        conn.commit()
+        conn.close()
+        await query.edit_message_text(f"✅ Для дня {day} встановлено години: {times_str}")
+        context.user_data['step'] = None
+        context.user_data['edit_day'] = None
+        context.user_data['chosen_times'] = []
+        return
+
+    if query.data == "custom_time":
+        await query.edit_message_text(
+            "Введіть свої години для цього дня через кому (наприклад: 10:00,11:30,12:00):",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Дні", callback_data="edit_schedule")]])
+        )
+        context.user_data['step'] = 'edit_times'
         return
 
     if query.data == 'edit_schedule':
