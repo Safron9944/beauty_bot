@@ -623,82 +623,79 @@ async def send_reminder(user_id, procedure, date, time, mode="day"):
         )
     except Exception as e:
         print(f"Не вдалося надіслати нагадування: {e}")
+async def admin_stats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    keyboard = [
+        [InlineKeyboardButton("Сьогодні", callback_data='stats_today')],
+        [InlineKeyboardButton("Цей тиждень", callback_data='stats_week')],
+        [InlineKeyboardButton("Цей місяць", callback_data='stats_month')],
+        [InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")],
+    ]
+    await query.edit_message_text(
+        "Оберіть період для статистики:",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+async def show_stats_for_period(update: Update, context: ContextTypes.DEFAULT_TYPE, period):
+    query = update.callback_query
+    today = datetime.now().date()
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+    if period == 'today':
+        date_from = date_to = today
+    elif period == 'week':
+        date_from = today - timedelta(days=today.weekday())
+        date_to = date_from + timedelta(days=6)
+    elif period == 'month':
+        date_from = today.replace(day=1)
+        date_to = today
+    else:
+        await query.edit_message_text("❓ Незнайомий період.")
+        return
+    c.execute("SELECT name, procedure, date, time FROM bookings")
+    rows = c.fetchall()
+    conn.close()
+    bookings = []
+    for name, procedure, date_str, time in rows:
+        date_obj = datetime.strptime(date_str + f'.{today.year}', "%d.%m.%Y").date()
+        if date_from <= date_obj <= date_to:
+            bookings.append((name, procedure, date_obj, time))
+    count = len(bookings)
+    unique_clients = len(set([b[0] for b in bookings]))
+    procedures = [b[1] for b in bookings]
+    if procedures:
+        top_procs = collections.Counter(procedures).most_common(3)
+        procs_str = "\n".join([f"— {p[0]} ({p[1]})" for p in top_procs])
+    else:
+        procs_str = "—"
+    weekdays = [b[2].strftime('%A') for b in bookings]
+    hours = [b[3][:2] for b in bookings]
+    if weekdays:
+        top_day = collections.Counter(weekdays).most_common(1)[0][0]
+    else:
+        top_day = "-"
+    if hours:
+        top_hour = collections.Counter(hours).most_common(1)[0][0] + ":00"
+    else:
+        top_hour = "-"
+    stats_text = (
+        f"📊 *Статистика за обраний період*\n"
+        f"Всього записів: *{count}*\n"
+        f"Унікальних клієнтів: *{unique_clients}*\n\n"
+        f"ТОП-3 процедури:\n{procs_str}\n\n"
+        f"Найпопулярніший день тижня: *{top_day}*\n"
+        f"Найпопулярніша година: *{top_hour}*"
+    )
+    await query.edit_message_text(stats_text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(
+        [[InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")]]))
+# ======= ДО main() =======
 
 def main():
     init_db()
     app = ApplicationBuilder().token(TOKEN).build()
-
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
-    import collections
-
-    async def admin_stats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        query = update.callback_query
-        keyboard = [
-            [InlineKeyboardButton("Сьогодні", callback_data='stats_today')],
-            [InlineKeyboardButton("Цей тиждень", callback_data='stats_week')],
-            [InlineKeyboardButton("Цей місяць", callback_data='stats_month')],
-            [InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")],
-        ]
-        await query.edit_message_text(
-            "Оберіть період для статистики:",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
-
-    async def show_stats_for_period(update: Update, context: ContextTypes.DEFAULT_TYPE, period):
-        query = update.callback_query
-        today = datetime.now().date()
-        conn = sqlite3.connect('appointments.db')
-        c = conn.cursor()
-        if period == 'today':
-            date_from = date_to = today
-        elif period == 'week':
-            date_from = today - timedelta(days=today.weekday())
-            date_to = date_from + timedelta(days=6)
-        elif period == 'month':
-            date_from = today.replace(day=1)
-            date_to = today
-        else:
-            await query.edit_message_text("❓ Незнайомий період.")
-            return
-        c.execute("SELECT name, procedure, date, time FROM bookings")
-        rows = c.fetchall()
-        conn.close()
-        bookings = []
-        for name, procedure, date_str, time in rows:
-            date_obj = datetime.strptime(date_str + f'.{today.year}', "%d.%m.%Y").date()
-            if date_from <= date_obj <= date_to:
-                bookings.append((name, procedure, date_obj, time))
-        count = len(bookings)
-        unique_clients = len(set([b[0] for b in bookings]))
-        procedures = [b[1] for b in bookings]
-        if procedures:
-            top_procs = collections.Counter(procedures).most_common(3)
-            procs_str = "\n".join([f"— {p[0]} ({p[1]})" for p in top_procs])
-        else:
-            procs_str = "—"
-        weekdays = [b[2].strftime('%A') for b in bookings]
-        hours = [b[3][:2] for b in bookings]
-        if weekdays:
-            top_day = collections.Counter(weekdays).most_common(1)[0][0]
-        else:
-            top_day = "-"
-        if hours:
-            top_hour = collections.Counter(hours).most_common(1)[0][0] + ":00"
-        else:
-            top_hour = "-"
-        stats_text = (
-            f"📊 *Статистика за обраний період*\n"
-            f"Всього записів: *{count}*\n"
-            f"Унікальних клієнтів: *{unique_clients}*\n\n"
-            f"ТОП-3 процедури:\n{procs_str}\n\n"
-            f"Найпопулярніший день тижня: *{top_day}*\n"
-            f"Найпопулярніша година: *{top_hour}*"
-        )
-        await query.edit_message_text(stats_text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(
-            [[InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")]]))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
-
     app.run_polling()
 
 if __name__ == "__main__":
