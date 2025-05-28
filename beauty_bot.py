@@ -105,6 +105,8 @@ async def admin_service_handler(update: Update, context: ContextTypes.DEFAULT_TY
         "Керуйте розкладом, дивіться всі записи і тримайте красу під контролем 👑\n"
         "Обирайте дію:"
     )
+    await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+
 
 # --- РЕДАГУВАННЯ ГРАФІКУ (АДМІН) ---
 async def edit_schedule_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -271,6 +273,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
+    if query.data == "admin_service":
+        await admin_service_handler(update, context)
+        return
 
     # --- Обробка вибору години для дня (settime_) ---
     if query.data.startswith("settime_"):
