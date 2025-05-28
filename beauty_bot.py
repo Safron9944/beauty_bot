@@ -186,9 +186,9 @@ async def manage_schedule_handler(update: Update, context: ContextTypes.DEFAULT_
 # --- ГОЛОВНЕ МЕНЮ ДЛЯ АДМІНА ---
 async def admin_service_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [InlineKeyboardButton("Керування графіком", callback_data="manage_schedule")],
-        [InlineKeyboardButton("Редагувати прайс", callback_data="edit_price")],
-        [InlineKeyboardButton("Статистика", callback_data="admin_stats")],
+        [InlineKeyboardButton("📋 Керування графіком", callback_data="manage_schedule")],
+        [InlineKeyboardButton("💰 Редагувати прайс", callback_data="edit_price")],
+        [InlineKeyboardButton("📊 Статистика", callback_data="admin_stats")],
         [InlineKeyboardButton("⬅️ Головне меню", callback_data="back_to_menu")]
     ]
     text = "⚙️ *Адмін-сервіс*\n\nОберіть дію:"
@@ -381,7 +381,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if query.data == 'show_price':
         price_text = get_price_text()
-        await query.edit_message_text(price_text, parse_mode="Markdown")
+        keyboard = [
+            [InlineKeyboardButton("⬅️ Назад до меню", callback_data="back_to_menu")]
+        ]
+        await query.edit_message_text(price_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
         return
 
     # Ось тут додаєш блоки для редагування прайсу
