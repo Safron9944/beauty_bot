@@ -141,32 +141,37 @@ async def edit_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     day = query.data.replace('edit_day_', '')
     context.user_data['edit_day'] = day
 
-    # Беремо години для цього дня
+    # 1. Витягуємо години для цього дня з БД
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
     c.execute("SELECT times FROM schedule WHERE date = ?", (day,))
     row = c.fetchone()
     conn.close()
-    times = [t.strip() for t in row[0].split(',')] if row and row[0] else []
+    chosen_times = [t.strip() for t in row[0].split(',')] if row and row[0] else []
+    context.user_data['chosen_times'] = chosen_times
 
-    context.user_data['edit_times'] = times
+    # 2. Визначаємо стандартні години для дня
+    weekday = datetime.strptime(day + f".{datetime.now().year}", "%d.%m.%Y").weekday()
+    if weekday < 5:
+        standard_times = [f"{h:02d}:00" for h in range(14, 19)]
+    else:
+        standard_times = [f"{h:02d}:00" for h in range(11, 19)]
 
-    # Формуємо клавіатуру
+    # 3. Створюємо кнопки з галочками
     keyboard = []
-    if times:
-        for t in times:
-            keyboard.append([InlineKeyboardButton(f"➖ {t}", callback_data=f"remtime_{t}")])
-    keyboard.append([InlineKeyboardButton("➕ Додати годину", callback_data="add_time")])
-    keyboard.append([InlineKeyboardButton("💾 Зберегти зміни", callback_data="save_times")])
+    for t in standard_times:
+        mark = "✅" if t in chosen_times else "☐"
+        keyboard.append([InlineKeyboardButton(f"{mark} {t}", callback_data=f"settime_{t}")])
+    keyboard.append([InlineKeyboardButton("Додати вручну", callback_data="custom_time")])
+    keyboard.append([InlineKeyboardButton("Зберегти", callback_data="save_times")])
     keyboard.append([InlineKeyboardButton("⬅️ Дні", callback_data="edit_schedule")])
 
-    selected_times = ', '.join(times) if times else "Немає годин"
+    selected = ', '.join(chosen_times) if chosen_times else "нічого не вибрано"
     await query.edit_message_text(
-        f"🗓️ *{day}*\nТут ви можете видаляти, додавати або зберігати години для цього дня.\n\n"
-        f"Поточні години: {selected_times}",
-        parse_mode='Markdown',
+        f"Вибрані години: {selected}\nНатискай на час, щоб додати або прибрати його зі списку, або введи свій.",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
+
 
 # --- ІНШІ АДМІН ФУНКЦІЇ ---
 async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
