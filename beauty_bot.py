@@ -105,10 +105,6 @@ async def admin_service_handler(update: Update, context: ContextTypes.DEFAULT_TY
         "Керуйте розкладом, дивіться всі записи і тримайте красу під контролем 👑\n"
         "Обирайте дію:"
     )
-    await query.edit_message_text(
-        f"Вибрані години: {selected}\nНатискай на час, щоб додати або прибрати його зі списку, або введи свій.",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
 
 # --- РЕДАГУВАННЯ ГРАФІКУ (АДМІН) ---
 async def edit_schedule_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -165,6 +161,10 @@ async def edit_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     selected_times = ', '.join(times) if times else "Немає годин"
     await query.edit_message_text(
         f"🗓️ *{day}*\nТут ви можете видаляти, додавати або зберігати години для цього дня.\n\n"
+        f"Поточні години: {selected_times}",
+        parse_mode='Markdown',
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
 # --- ІНШІ АДМІН ФУНКЦІЇ ---
 async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -272,19 +272,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     user_id = query.from_user.id
 
-    # Адмін-сервіс та все що з ним
-    if query.data == 'admin_service':
-        await admin_service_handler(update, context)
-        return
-
-    if query.data == 'delete_day':
-        await delete_day_handler(update, context)
-        return
-
-    if query.data == 'admin_stats':
-        await admin_stats_handler(update, context)
-        return
-
+    # --- Обробка вибору години для дня (settime_) ---
     if query.data.startswith("settime_"):
         time = query.data.replace("settime_", "")
         chosen = context.user_data.get('chosen_times', [])
@@ -313,45 +301,43 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-if query.data == "save_times":
-    day = context.user_data.get('edit_day')
-    times = context.user_data.get('chosen_times', [])
-    times_str = ",".join(times)
-    conn = sqlite3.connect('appointments.db')
-    c = conn.cursor()
-    c.execute("SELECT id FROM schedule WHERE date = ?", (day,))
-    exists = c.fetchone()
-    if exists:
-        c.execute("UPDATE schedule SET times=? WHERE date=?", (times_str, day))
-    else:
-        c.execute("INSERT INTO schedule (date, times) VALUES (?, ?)", (day, times_str))
-    conn.commit()
-    conn.close()
-    await query.edit_message_text(f"✅ Для дня {day} встановлено години: {times_str if times_str else 'жодної'}")
-    context.user_data['step'] = None
-    context.user_data['edit_day'] = None
-    context.user_data['chosen_times'] = []
-    return
+    # --- Зберегти вибрані години ---
+    if query.data == "save_times":
+        day = context.user_data.get('edit_day')
+        times = context.user_data.get('chosen_times', [])
+        times_str = ",".join(times)
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("SELECT id FROM schedule WHERE date = ?", (day,))
+        exists = c.fetchone()
+        if exists:
+            c.execute("UPDATE schedule SET times=? WHERE date=?", (times_str, day))
+        else:
+            c.execute("INSERT INTO schedule (date, times) VALUES (?, ?)", (day, times_str))
+        conn.commit()
+        conn.close()
+        await query.edit_message_text(f"✅ Для дня {day} встановлено години: {times_str if times_str else 'жодної'}")
+        context.user_data['step'] = None
+        context.user_data['edit_day'] = None
+        context.user_data['chosen_times'] = []
+        return
 
-if query.data == "custom_time":
-    await query.edit_message_text(
-        "Введіть свої години для цього дня через кому (наприклад: 10:00,11:30,12:00):",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Дні", callback_data="edit_schedule")]])
-    )
-    context.user_data['step'] = 'edit_times'
-    return
+    # --- Ввести години вручну ---
+    if query.data == "custom_time":
+        await query.edit_message_text(
+            "Введіть свої години для цього дня через кому (наприклад: 10:00,11:30,12:00):",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Дні", callback_data="edit_schedule")]])
+        )
+        context.user_data['step'] = 'edit_times'
+        return
 
+    # Далі всі інші гілки button_handler...
     if query.data == 'edit_schedule':
         await edit_schedule_handler(update, context)
         return
 
     if query.data.startswith('edit_day_'):
         await edit_day_handler(update, context)
-        return
-
-    if query.data.startswith('set_dayoff_'):
-        date = query.data.replace('set_dayoff_', '')
-        await set_day_off(update, context, date)
         return
 
     if query.data == "back_to_menu":
@@ -382,11 +368,13 @@ if query.data == "custom_time":
         c.execute("INSERT OR IGNORE INTO deleted_days (date) VALUES (?)", (date,))
         conn.commit()
         conn.close()
-        await query.edit_message_text(f"✅ День {date} зроблено вихідним! Більше недоступний для запису. Більше недоступний для запису!",
+        await query.edit_message_text(
+            f"✅ День {date} зроблено вихідним! Більше недоступний для запису.",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")]])
         )
         return
 
+    # --- І далі інші клієнтські функції... ---
     # --- ДЛЯ КЛІЄНТА ---
     if query.data == 'book' or query.data == 'back_to_procedure':
         keyboard = [
