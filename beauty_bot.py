@@ -725,11 +725,15 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn.close()
         if row:
             procedure, date, time = row
+            keyboard = [
+                [InlineKeyboardButton("⬅️ Головне меню", callback_data="back_to_menu")]
+            ]
             await query.message.reply_text(
-                f"✅ Ваш запис на {procedure} {date} о {time} підтверджено! Я з нетерпінням чекаю на тебе! 💖"
+                f"✅ Ваш запис на {procedure} {date} о {time} підтверджено! Я з нетерпінням чекаю на тебе! 💖",
+                reply_markup=InlineKeyboardMarkup(keyboard)
             )
         return
-
+    
     if query.data.startswith('cancel_'):
         booking_id = int(query.data.replace('cancel_', ''))
         conn = sqlite3.connect('appointments.db')
