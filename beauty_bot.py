@@ -263,6 +263,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await admin_service_handler(update, context)
         return
 
+    if query.data == 'delete_day':
+        await choose_day_for_dayoff(update, context)
+        return
+
     if query.data == 'admin_stats':
         await admin_stats_handler(update, context)
         return
@@ -278,6 +282,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if query.data.startswith('edit_day_'):
         await edit_day_handler(update, context)
+        return
+
+    if query.data.startswith('set_dayoff_'):
+        date = query.data.replace('set_dayoff_', '')
+        await set_day_off(update, context, date)
         return
 
     if query.data == "back_to_menu":
@@ -299,6 +308,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if query.data == "weekcalendar":
         await week_calendar_handler(update, context)
+        return
+
+    if query.data == 'delete_day':
+        await choose_day_for_dayoff(update, context)
         return
 
     if query.data.startswith("delday_") and user_id == ADMIN_ID:
@@ -691,6 +704,19 @@ async def show_stats_for_period(update: Update, context: ContextTypes.DEFAULT_TY
         [[InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")]]))
 # ======= ДО main() =======
 
+# --- Всі твої async def ... ---
+
+async def set_day_off(update: Update, context: ContextTypes.DEFAULT_TYPE, date):
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+    c.execute("INSERT OR IGNORE INTO deleted_days (date) VALUES (?)", (date,))
+    conn.commit()
+    conn.close()
+    await update.callback_query.edit_message_text(
+        f"✅ День {date} зроблено вихідним! Більше недоступний для запису.",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")]])
+    )
+
 def main():
     init_db()
     app = ApplicationBuilder().token(TOKEN).build()
@@ -698,21 +724,6 @@ def main():
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
     app.run_polling()
-async def choose_day_for_dayoff(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    days = []
-    today = datetime.now().date()
-    for i in range(7):  # показати наступні 7 днів
-        day = today + timedelta(days=i)
-        days.append(day.strftime("%d.%m.%Y"))
-    keyboard = [
-        [InlineKeyboardButton(day, callback_data=f"set_dayoff_{day}")] for day in days
-    ]
-    keyboard.append([InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")])
-    await query.edit_message_text(
-        "💤 Обери день для вихідного (цей день стане недоступним для запису):",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
 
 if __name__ == "__main__":
     main()
