@@ -32,6 +32,7 @@ scheduler.start()
 def init_db():
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
+    # Твої інші таблиці:
     c.execute("""
         CREATE TABLE IF NOT EXISTS bookings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,8 +57,64 @@ def init_db():
             date TEXT PRIMARY KEY
         )
     """)
+    # Додаємо нову таблицю прайсу:
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS price_list (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE,
+            price INTEGER
+        )
+    """)
+    # Якщо таблиця порожня — наповнюємо дефолтними послугами:
+    c.execute("SELECT COUNT(*) FROM price_list")
+    if c.fetchone()[0] == 0:
+        services = [
+            ("Корекція брів (воск/пінцет)", 200),
+            ("Фарбування брів (фарба/хна)", 150),
+            ("Корекція брів + фарбування", 300),
+            ("Ламінування брів + корекція", 400),
+            ("Ламінування брів + корекція + фарбування", 500),
+            ("Ламінування вій без фарбування + ботокс", 400),
+            ("Ламінування вій + фарбування + ботокс", 450),
+            ("Ваксинг над губою", 100),
+            ("Ваксинг нижня зона обличчя", 100),
+            ("Фарбування вій", 150),
+        ]
+        c.executemany("INSERT INTO price_list (name, price) VALUES (?, ?)", services)
     conn.commit()
     conn.close()
+
+# --- 2. Ось тут вставляєш функцію для виводу прайсу ---
+def get_price_text():
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+    c.execute("SELECT name, price FROM price_list")
+    rows = c.fetchall()
+    conn.close()
+
+    # Групуємо по категоріях
+    cats = {
+        "Брови": [],
+        "Вії": [],
+        "Інше": []
+    }
+    for name, price in rows:
+        if "брів" in name or "Бров" in name:
+            cats["Брови"].append((name, price))
+        elif "Ві" in name or "вій" in name:
+            cats["Вії"].append((name, price))
+        else:
+            cats["Інше"].append((name, price))
+
+    txt = "💎 *Прайс-лист Safroniuk Brows & Lashes*\n\n"
+    for k in cats:
+        if cats[k]:
+            txt += f"*{k}:*\n"
+            for n, p in cats[k]:
+                txt += f"• {n} — {p} грн\n"
+            txt += "\n"
+    txt += "☎️ *Телефон для запису:* +380976853623\nInstagram: @safroniuk.brows.lashes"
+    return txt
 
 # --- ГОЛОВНЕ МЕНЮ ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -65,6 +122,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("💎 Записатися на процедуру", callback_data='book')],
         [InlineKeyboardButton("📋 Мої записи", callback_data='check_booking')],
+        [InlineKeyboardButton("📋 Прайс", callback_data='show_price')],
         [InlineKeyboardButton("📸 Instagram", url=INSTAGRAM_LINK)],
         [InlineKeyboardButton("📍 Геолокація", url=MASTER_GEO_LINK)],
         [InlineKeyboardButton(f"👩‍🎨 Ваш майстер: {MASTER_NAME}", callback_data='master_phone')]
@@ -98,6 +156,7 @@ async def admin_service_handler(update: Update, context: ContextTypes.DEFAULT_TY
         [InlineKeyboardButton("💤 Вихідний день", callback_data='delete_day')],
         [InlineKeyboardButton("📅 Календар на сьогодні", callback_data='calendar')],
         [InlineKeyboardButton("📆 Календар на тиждень", callback_data='weekcalendar')],
+        [InlineKeyboardButton("💰 Редагувати прайс", callback_data='edit_price')],
         [InlineKeyboardButton("⬅️ Головне меню", callback_data='back_to_menu')]
     ]
     text = (
@@ -278,11 +337,47 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
+
     if query.data == "admin_service":
         await admin_service_handler(update, context)
         return
+
     if query.data == 'edit_schedule':
         await edit_schedule_handler(update, context)
+        return
+
+    if query.data == 'show_price':
+        price_text = get_price_text()
+        await query.edit_message_text(price_text, parse_mode="Markdown")
+        return
+    # Ось тут додаєш блоки для редагування прайсу
+    if query.data == 'edit_price':
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("SELECT id, name, price FROM price_list")
+        services = c.fetchall()
+        conn.close()
+        keyboard = [
+            [InlineKeyboardButton(f"{name}: {price} грн", callback_data=f'edit_price_{id}')]
+            for id, name, price in services
+        ]
+        keyboard.append([InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")])
+        await query.edit_message_text("Оберіть послугу для зміни ціни:", reply_markup=InlineKeyboardMarkup(keyboard))
+        return
+
+    if query.data.startswith('edit_price_'):
+        service_id = int(query.data.replace('edit_price_', ''))
+        context.user_data['edit_price_id'] = service_id
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("SELECT name, price FROM price_list WHERE id=?", (service_id,))
+        name, old_price = c.fetchone()
+        conn.close()
+        await query.edit_message_text(
+            f"Введіть нову ціну для:\n*{name}* (зараз: {old_price} грн)", parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Назад", callback_data="edit_price")]])
+        )
+        context.user_data['step'] = 'update_price'
         return
 
     if query.data.startswith('edit_day_'):
@@ -308,7 +403,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data == 'stats_month':
         await show_stats_for_period(update, context, 'month')
         return
-
 
     # --- Обробка вибору години для дня (settime_) ---
     if query.data.startswith("settime_"):
@@ -617,6 +711,25 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_step = context.user_data.get('step')
     text = update.message.text
+
+    # --- ЗМІНА ЦІНИ В ПРАЙСІ ---
+    if user_step == 'update_price' and update.effective_user.id == ADMIN_ID:
+        service_id = context.user_data.get('edit_price_id')
+        try:
+            new_price = int(text.strip())
+            conn = sqlite3.connect('appointments.db')
+            c = conn.cursor()
+            c.execute("UPDATE price_list SET price=? WHERE id=?", (new_price, service_id))
+            conn.commit()
+            c.execute("SELECT name FROM price_list WHERE id=?", (service_id,))
+            name = c.fetchone()[0]
+            conn.close()
+            await update.message.reply_text(f"Ціну для '{name}' оновлено на {new_price} грн!")
+        except Exception as e:
+            await update.message.reply_text("❗️Помилка. Введіть цілу суму (наприклад, 350)")
+        context.user_data['step'] = None
+        context.user_data['edit_price_id'] = None
+        return
 
     # --- Додавання/редагування часу для дня (адмін) ---
     if user_step == 'edit_times' and update.effective_user.id == ADMIN_ID:
