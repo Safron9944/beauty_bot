@@ -13,7 +13,7 @@ from telegram.ext import (
 )
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime, timedelta
-
+import collections
 try:
     from google_sheets import add_to_google_sheet
 except ImportError:
@@ -27,6 +27,7 @@ MASTER_GEO = "вул. Київська 41, Могилів-Подільський
 MASTER_GEO_LINK = "https://maps.app.goo.gl/n6xvT6bpMcL5QjHP9"
 
 scheduler = BackgroundScheduler()
+scheduler.start()
 
 def init_db():
     conn = sqlite3.connect('appointments.db')
@@ -613,7 +614,6 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 run_date=remind_2h,
                 args=[user_id, procedure, date, time, "2h"]
             )
-        scheduler.start()
         context.user_data.clear()
         return
 
