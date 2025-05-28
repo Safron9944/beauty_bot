@@ -186,12 +186,16 @@ async def manage_schedule_handler(update: Update, context: ContextTypes.DEFAULT_
 # --- ГОЛОВНЕ МЕНЮ ДЛЯ АДМІНА ---
 async def admin_service_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [InlineKeyboardButton("📋 Керування графіком", callback_data="manage_schedule")],
-        [InlineKeyboardButton("💰 Редагувати прайс", callback_data="edit_price")],
+        [InlineKeyboardButton("🗓️ Керування графіком", callback_data="manage_schedule")],
+        [InlineKeyboardButton("💸 Редагувати прайс", callback_data="edit_price")],
         [InlineKeyboardButton("📊 Статистика", callback_data="admin_stats")],
         [InlineKeyboardButton("⬅️ Головне меню", callback_data="back_to_menu")]
     ]
-    text = "⚙️ *Адмін-сервіс*\n\nОберіть дію:"
+    text = (
+        "🌟 *Адмін-сервіс*\n\n"
+        "Керуйте розкладом, дивіться всі записи і тримайте красу під контролем 👑\n"
+        "Оберіть дію:"
+    )
     await update.callback_query.edit_message_text(
         text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown"
     )
