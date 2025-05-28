@@ -823,12 +823,10 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         search = update.message.text.strip().lower()
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-        # Спочатку простий пошук по всіх записах
         c.execute("""
-                  SELECT DISTINCT user_id, name, phone
+                  SELECT id, name, phone, date, procedure, time, status, note
                   FROM bookings
-                  WHERE LOWER(name) LIKE ?
-                     OR phone LIKE ?
+                  WHERE LOWER (name) LIKE ? OR phone LIKE ?
                   ORDER BY date DESC
                       LIMIT 10
                   """, (f"%{search}%", f"%{search}%"))
@@ -840,9 +838,24 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data['step'] = None
             return
 
-        for user_id, name, phone in rows:
-            msg = f"👤 *{name}*\n📱 `{phone}`"
-            await update.message.reply_text(msg, parse_mode="Markdown")
+        for booking_id, name, phone, date, procedure, time, status, note in rows:
+            msg = (
+                f"👤 *{name}*\n"
+                f"📱 `{phone}`\n"
+                f"Дата: {date}\n"
+                f"Процедура: {procedure}\n"
+                f"Час: {time}\n"
+                f"Статус: {status}"
+            )
+            if note:
+                msg += f"\n📝 Примітка: _{note}_"
+            # Кнопка для додавання/редагування примітки!
+            buttons = [[InlineKeyboardButton("📝 Додати/редагувати примітку", callback_data=f"note_{booking_id}")]]
+            await update.message.reply_text(
+                msg,
+                reply_markup=InlineKeyboardMarkup(buttons),
+                parse_mode="Markdown"
+            )
         context.user_data['step'] = None
         return
 
