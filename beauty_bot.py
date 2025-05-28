@@ -823,13 +823,14 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         search = update.message.text.strip().lower()
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
+        # Спочатку простий пошук по всіх записах
         c.execute("""
-                  SELECT user_id, name, phone, MAX(date), MAX(time)
+                  SELECT DISTINCT user_id, name, phone
                   FROM bookings
                   WHERE LOWER(name) LIKE ?
                      OR phone LIKE ?
-                  GROUP BY user_id
-                  ORDER BY MAX(date) DESC LIMIT 10
+                  ORDER BY date DESC
+                      LIMIT 10
                   """, (f"%{search}%", f"%{search}%"))
         rows = c.fetchall()
         conn.close()
@@ -839,33 +840,9 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data['step'] = None
             return
 
-        for user_id, name, phone, last_date, last_time in rows:
-            # Дістаємо останню примітку цього клієнта (user_id)
-            conn = sqlite3.connect('appointments.db')
-            c = conn.cursor()
-            c.execute("""
-                      SELECT note
-                      FROM bookings
-                      WHERE user_id = ?
-                        AND note IS NOT NULL
-                        AND note != ''
-                      ORDER BY id DESC LIMIT 1
-                      """, (user_id,))
-            note_row = c.fetchone()
-            conn.close()
-            note = note_row[0] if note_row else None
-
-            msg = (
-                f"👤 *{name}*\n"
-                f"📱 `{phone}`\n"
-                f"Останній запис: {last_date or '-'} о {last_time or '-'}"
-            )
-            if note:
-                msg += f"\n📝 Примітка: _{note}_"
-            await update.message.reply_text(
-                msg,
-                parse_mode="Markdown"
-            )
+        for user_id, name, phone in rows:
+            msg = f"👤 *{name}*\n📱 `{phone}`"
+            await update.message.reply_text(msg, parse_mode="Markdown")
         context.user_data['step'] = None
         return
 
