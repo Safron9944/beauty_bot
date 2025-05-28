@@ -276,6 +276,34 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data == "admin_service":
         await admin_service_handler(update, context)
         return
+    if query.data == 'edit_schedule':
+        await edit_schedule_handler(update, context)
+        return
+
+    if query.data.startswith('edit_day_'):
+        await edit_day_handler(update, context)
+        return
+
+    if query.data == 'admin_stats':
+        await admin_stats_handler(update, context)
+        return
+
+    if query.data == 'delete_day':
+        await delete_day_handler(update, context)
+        return
+
+    if query.data == 'stats_today':
+        await show_stats_for_period(update, context, 'today')
+        return
+
+    if query.data == 'stats_week':
+        await show_stats_for_period(update, context, 'week')
+        return
+
+    if query.data == 'stats_month':
+        await show_stats_for_period(update, context, 'month')
+        return
+
 
     # --- Обробка вибору години для дня (settime_) ---
     if query.data.startswith("settime_"):
