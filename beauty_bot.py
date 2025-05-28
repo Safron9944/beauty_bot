@@ -94,7 +94,7 @@ async def admin_service_handler(update: Update, context: ContextTypes.DEFAULT_TY
     keyboard = [
         [InlineKeyboardButton("🗓️ Редагувати графік по днях", callback_data='edit_schedule')],
         [InlineKeyboardButton("📊 Статистика", callback_data='admin_stats')],
-        [InlineKeyboardButton("🗑️ Видалити день з графіка", callback_data='delete_day')],
+        [InlineKeyboardButton("💤 Вихідний день", callback_data='delete_day')],
         [InlineKeyboardButton("📅 Календар на сьогодні", callback_data='calendar')],
         [InlineKeyboardButton("📆 Календар на тиждень", callback_data='weekcalendar')],
         [InlineKeyboardButton("⬅️ Головне меню", callback_data='back_to_menu')]
@@ -187,7 +187,7 @@ async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     ]
     keyboard.append([InlineKeyboardButton("⬅️ Назад до адмін-сервісу", callback_data="admin_service")])
     await query.edit_message_text(
-        "🗑️ Обери день для видалення з розкладу:",
+        "💤 Обери день для вихідного (цей день стане недоступним для запису):",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
@@ -307,7 +307,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         c.execute("INSERT OR IGNORE INTO deleted_days (date) VALUES (?)", (date,))
         conn.commit()
         conn.close()
-        await query.edit_message_text(f"✅ День {date} видалено з графіка. Більше недоступний для запису!",
+        await query.edit_message_text(f"✅ День {date} зроблено вихідним! Більше недоступний для запису. Більше недоступний для запису!",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")]])
         )
         return
