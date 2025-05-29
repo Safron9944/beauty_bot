@@ -944,18 +944,19 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 [InlineKeyboardButton("👁️ Ламінування вій (виразний погляд)", callback_data='proc_lam_lashes')],
                 [InlineKeyboardButton("⬅️ Назад до картки клієнта", callback_data=f'client_{client_id}')]
             ]
-            print("==> [client_book_] send_message sent, result:", result)
+            # ось тут ти відправляєш повідомлення, і тільки тут створюй result:
             result = await context.bot.send_message(
                 chat_id=query.message.chat.id,
                 text=f"Оберіть процедуру для запису клієнта {name}:",
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
-            print("==> [client_book_] reply_text sent, result:", result)
+            print("==> [client_book_] send_message sent, result:", result)
         except Exception as e:
             import traceback
             print("==> [client_book_] ERROR:", e)
             print(traceback.format_exc())
         return
+
     if query.data.startswith('client_'):
         client_id = int(query.data.replace("client_", ""))
         await show_client_card(update, context, client_id)
