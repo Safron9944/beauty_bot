@@ -299,7 +299,8 @@ async def clients_top_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     buttons = []
     for idx, (client_id, name, phone, num, total) in enumerate(rows, 1):
         text += f"{idx}. {name} — {num} записів, {total} грн\n"
-        buttons.append([InlineKeyboardButton(f"{name}", callback_data=f"client_{client_id}")])
+        buttons.append([InlineKeyboardButton(f"{name}", callback_data=f"clientphone_{phone}"
+)])
     buttons.append([InlineKeyboardButton("⬅️ Назад", callback_data="clients_service")])
     await update.callback_query.edit_message_text(
         text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown"
@@ -308,7 +309,12 @@ async def clients_top_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def client_add_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop('client_search', None)  # Важливо!
     context.user_data['client_add'] = {'step': 'name'}
-    await update.callback_query.edit_message_text("Введіть ім'я та прізвище нового клієнта:")
+    await update.callback_query.edit_message_text(
+        "Введіть ім'я та прізвище нового клієнта:",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("⬅️ Назад", callback_data="clients_service")]
+        ])
+    )
 
 async def client_add_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = context.user_data.get('client_add')
@@ -375,7 +381,8 @@ async def client_search_text_handler(update: Update, context: ContextTypes.DEFAU
     if not rows:
         await update.message.reply_text("Клієнта не знайдено.")
     else:
-        buttons = [[InlineKeyboardButton(f"{name} ({phone})", callback_data=f"client_{client_id}")]
+        buttons = [[InlineKeyboardButton(f"{name} ({phone})", ccallback_data=f"clientphone_{phone}"
+)]
                    for client_id, name, phone in rows]
         buttons.append([InlineKeyboardButton("⬅️ Назад", callback_data="clients_service")])
         await update.message.reply_text("Оберіть клієнта:", reply_markup=InlineKeyboardMarkup(buttons))
@@ -428,6 +435,35 @@ async def show_client_card(update, context, client_id):
         await context.bot.send_message(chat_id=update.effective_user.id, text=txt, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
     else:
         await context.bot.send_message(chat_id=update.effective_user.id, text=txt, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def show_client_card_by_phone(update, context, phone):
+    import re
+    # Нормалізуємо номер (залишаємо тільки цифри)
+    clean = lambda x: re.sub(r"\D", "", x)
+    phone_clean = clean(phone)
+
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+    # Знаходимо клієнта по номеру (у БД теж чистимо телефон)
+    c.execute("""
+        SELECT id FROM clients 
+        WHERE REPLACE(REPLACE(REPLACE(REPLACE(phone, '+', ''), ' ', ''), '-', ''), '(', '') = ?
+        LIMIT 1
+    """, (phone_clean,))
+    row = c.fetchone()
+    conn.close()
+
+    if row:
+        client_id = row[0]
+        await show_client_card(update, context, client_id)
+    else:
+        if hasattr(update, "callback_query") and update.callback_query:
+            await update.callback_query.edit_message_text("Клієнта з цим номером не знайдено.")
+        else:
+            await context.bot.send_message(
+                chat_id=update.effective_user.id,
+                text="Клієнта з цим номером не знайдено."
+            )
 
 # --- TEXT HANDLER ---
 
@@ -747,11 +783,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data == "client_search_start":
         await client_search_start_handler(update, context)
         return
-    if query.data.startswith("client_"):
-        client_id = int(query.data.split("_")[1])
-        await show_client_card(update, context, client_id)
+    if query.data.startswith("clientphone_"):
+        phone = query.data.replace("clientphone_", "")
+        await show_client_card_by_phone(update, context, phone)
         return
-
 
     # Далі всі інші гілки button_handler...
     if query.data == 'edit_schedule':
