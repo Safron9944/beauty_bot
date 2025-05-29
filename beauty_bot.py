@@ -73,6 +73,7 @@ def init_db():
         )
     """)
 
+
     # Заповнення прайсу дефолтними значеннями, якщо він порожній
     c.execute("SELECT COUNT(*) FROM price_list")
     if c.fetchone()[0] == 0:
@@ -175,14 +176,21 @@ def init_db():
     conn.close()
 
 # Функція для оновлення або додавання клієнта
-def update_or_add_client(user_name, user_phone):
+def update_or_add_client(user_name, user_phone=None):
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
     today = datetime.now().strftime("%Y-%m-%d")
 
-    # Перевірка чи є клієнт у базі
-    c.execute("SELECT id, total_visits FROM clients WHERE phone=?", (user_phone,))
-    existing = c.fetchone()
+    # Якщо переданий номер телефону
+    if user_phone:
+        # Перевірка чи є клієнт за номером телефону
+        c.execute("SELECT id, total_visits FROM clients WHERE phone=?", (user_phone,))
+        existing = c.fetchone()
+
+    # Якщо номер телефону не передано, шукаємо за іменем та прізвищем
+    if not existing:
+        c.execute("SELECT id, total_visits FROM clients WHERE name=?", (user_name,))
+        existing = c.fetchone()
 
     if existing:
         client_id, total_visits = existing
@@ -711,7 +719,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             buttons = [
                 [InlineKeyboardButton("👁 Картка клієнта", callback_data=f"client_card_{phone}")],
-                [InlineKeyboardButton("📝 Редагувати примітку", callback_data=f"edit_client_note_{phone}")]
+                [InlineKeyboardButton("📝 Редагувати примітку", callback_data=f"edit_client_note_{phone}")],
+                [InlineKeyboardButton("⬅️ До адмін-сервісу", callback_data="admin_service")]  # Кнопка для повернення
             ]
             await query.message.reply_text(
                 msg, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown"
