@@ -929,9 +929,31 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         await query.edit_message_text(msg, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
         return
-
-
-
+    if query.data == 'back_to_procedure':
+        # Для адміна — повернення до вибору процедур клієнта
+        client_id = context.user_data.get('booking_client_id')
+        if not client_id:
+            # На випадок, якщо контекст не збережено — можна вивести помилку або повернутись до головного меню
+            await query.edit_message_text(
+                "Помилка: Клієнт не знайдений. Спробуйте ще раз або поверніться до головного меню.")
+            return
+        with sqlite3.connect('appointments.db') as conn:
+            c = conn.cursor()
+            c.execute("SELECT name FROM clients WHERE id=?", (client_id,))
+            row = c.fetchone()
+        name = row[0] if row else "Невідомий"
+        keyboard = [
+            [InlineKeyboardButton("✨ Корекція брів (ідеальна форма)", callback_data='proc_brows')],
+            [InlineKeyboardButton("🎨 Фарбування + корекція брів", callback_data='proc_tint_brows')],
+            [InlineKeyboardButton("🌟 Ламінування брів (WOW-ефект)", callback_data='proc_lam_brows')],
+            [InlineKeyboardButton("👁️ Ламінування вій (виразний погляд)", callback_data='proc_lam_lashes')],
+            [InlineKeyboardButton("⬅️ Назад до картки клієнта", callback_data=f'client_{client_id}')]
+        ]
+        await query.edit_message_text(
+            f"Оберіть процедуру для запису клієнта {name}:",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return
 
     # --- І далі інші клієнтські функції... ---
     # --- ДЛЯ КЛІЄНТА ---
@@ -1107,7 +1129,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Запитуємо ПІБ та телефон для запису
         await query.edit_message_text(
-            "Введіть свої ПІБ та телефон через кому (наприклад: Іван Іванов, +380...):"
+            "Введіть свої ПІБ та телефон через кому (наприклад: Марія Сафронюк, +380...):"
         )
         context.user_data['step'] = 'get_fullinfo'
         return
