@@ -1065,7 +1065,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.message.reply_text("Записів не знайдено. Час оновити свій образ! 💄")
         return
 
+    # --- ВИБІР ЧАСУ ДЛЯ ЗАПИСУ (АДМІН або ЗВИЧАЙНИЙ КЛІЄНТ) ---
+
     if query.data.startswith('time_') and context.user_data.get('booking_client_id'):
+        # --- Це сценарій для адміна: записати клієнта ще раз ---
         time = query.data.replace('time_', '')
         procedure = context.user_data.get('procedure')
         date = context.user_data.get('date')
@@ -1092,6 +1095,21 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
         context.user_data.clear()
+        return
+
+    elif query.data.startswith('time_'):
+        # --- Це сценарій для звичайного клієнта, який записується сам ---
+        time = query.data.replace('time_', '')
+        procedure = context.user_data.get('procedure')
+        date = context.user_data.get('date')
+        user_id = query.from_user.id
+        context.user_data['time'] = time
+
+        # Запитуємо ПІБ та телефон для запису
+        await query.edit_message_text(
+            "Введіть свої ПІБ та телефон через кому (наприклад: Іван Іванов, +380...):"
+        )
+        context.user_data['step'] = 'get_fullinfo'
         return
 
     if query.data == 'back_to_date':
@@ -1270,6 +1288,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['edit_day'] = None
         return
 
+    # --- Обробка введення ПІБ та телефону для запису ---
     if user_step == 'get_fullinfo':
         context.user_data['fullinfo'] = text
         procedure = context.user_data.get('procedure')
@@ -1283,11 +1302,13 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             name, phone = fullinfo.strip(), "N/A"
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-        c.execute("INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                  (user_id, name, phone, procedure, date, time, "Очікує підтвердження"))
+        c.execute(
+            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (user_id, name, phone, procedure, date, time, "Очікує підтвердження"))
         booking_id = c.lastrowid
         conn.commit()
         conn.close()
+        # Якщо використовуєш Google Sheets — цей рядок залишаєш:
         add_to_google_sheet(name, "", phone, procedure, date, time)
         keyboard = [
             [InlineKeyboardButton("✅ Підтвердити", callback_data=f"confirm_{booking_id}"),
@@ -1299,13 +1320,15 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
+        # Сповіщаємо адміністратора:
         await context.bot.send_message(
             chat_id=ADMIN_ID,
             text=f"""📥 Новий запис:
-ПІБ/Телефон: {name} / {phone}
-Процедура: {procedure}
-Дата: {date} о {time}"""
+    ПІБ/Телефон: {name} / {phone}
+    Процедура: {procedure}
+    Дата: {date} о {time}"""
         )
+        # Нагадування клієнту:
         event_time = datetime.strptime(f"{date} {time}", "%d.%m %H:%M")
         remind_day = event_time - timedelta(days=1)
         remind_time = remind_day.replace(hour=10, minute=0, second=0, microsecond=0)
@@ -1327,6 +1350,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         context.user_data.clear()
         return
+
 
     else:
         await update.message.reply_text("Оберіть дію за допомогою кнопок нижче та подаруйте собі красу! 💖")
