@@ -264,7 +264,11 @@ async def edit_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Вибрані години: {selected}\nНатискай на час, щоб додати або прибрати його зі списку, або введи свій.",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
+
 async def clients_service_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Очищуємо всі стани для уникнення конфліктів
+    context.user_data.pop('client_add', None)
+    context.user_data.pop('client_search', None)
     keyboard = [
         [InlineKeyboardButton("🏆 Топ-10 клієнтів", callback_data="clients_top")],
         [InlineKeyboardButton("➕ Додати нового клієнта", callback_data="client_add")],
@@ -275,6 +279,7 @@ async def clients_service_handler(update: Update, context: ContextTypes.DEFAULT_
     await update.callback_query.edit_message_text(
         text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown"
     )
+
 async def clients_top_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
@@ -299,9 +304,11 @@ async def clients_top_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     await update.callback_query.edit_message_text(
         text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown"
     )
+
 async def client_add_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.callback_query.edit_message_text("Введіть ім'я та прізвище нового клієнта:")
+    context.user_data.pop('client_search', None)  # Важливо!
     context.user_data['client_add'] = {'step': 'name'}
+    await update.callback_query.edit_message_text("Введіть ім'я та прізвище нового клієнта:")
 
 async def client_add_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = context.user_data.get('client_add')
@@ -315,7 +322,7 @@ async def client_add_text_handler(update: Update, context: ContextTypes.DEFAULT_
     if data['step'] == 'phone':
         context.user_data['client_add']['phone'] = update.message.text.strip()
         context.user_data['client_add']['step'] = 'note'
-        await update.message.reply_text("Додайте примітку (або пропустіть):")
+        await update.message.reply_text("Додайте примітку (або напишіть 'пропустити'):")
         return
     if data['step'] == 'note':
         note = update.message.text.strip()
@@ -338,11 +345,13 @@ async def client_add_text_handler(update: Update, context: ContextTypes.DEFAULT_
         except sqlite3.IntegrityError:
             await update.message.reply_text("Клієнт із цим телефоном вже існує!")
         conn.close()
-        context.user_data['client_add'] = None
+        context.user_data.pop('client_add', None)
         return
+
 async def client_search_start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.callback_query.edit_message_text("Введіть ім'я/прізвище або телефон клієнта:")
+    context.user_data.pop('client_add', None)   # Важливо!
     context.user_data['client_search'] = True
+    await update.callback_query.edit_message_text("Введіть ім'я/прізвище або телефон клієнта:")
 
 async def client_search_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.user_data.get('client_search'):
@@ -364,7 +373,7 @@ async def client_search_text_handler(update: Update, context: ContextTypes.DEFAU
                    for client_id, name, phone in rows]
         buttons.append([InlineKeyboardButton("⬅️ Назад", callback_data="clients_service")])
         await update.message.reply_text("Оберіть клієнта:", reply_markup=InlineKeyboardMarkup(buttons))
-    context.user_data['client_search'] = False
+    context.user_data.pop('client_search', None)
 
 async def show_client_card(update, context, client_id):
     conn = sqlite3.connect('appointments.db')
@@ -403,9 +412,46 @@ async def show_client_card(update, context, client_id):
          InlineKeyboardButton("📋 Вся історія записів", callback_data=f"client_history_{client_id}")],
         [InlineKeyboardButton("⬅️ Назад", callback_data="clients_service")]
     ]
-    await update.message.reply_text(txt, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
+    # Відповідь для callback або для повідомлення (врахуй — update.message чи update.callback_query)
+    if hasattr(update, "message") and update.message:
+        await update.message.reply_text(txt, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
+    else:
+        await update.callback_query.edit_message_text(txt, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
 
+# --- TEXT HANDLER ---
 
+async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_step = context.user_data.get('step')
+    text = update.message.text
+
+    # --- Пошук клієнта ---
+    if context.user_data.get('client_search'):
+        await client_search_text_handler(update, context)
+        return
+
+    # --- Додавання нового клієнта ---
+    if context.user_data.get('client_add'):
+        await client_add_text_handler(update, context)
+        return
+
+    # --- Додавання примітки до запису (старий сценарій) ---
+    if user_step == 'add_note' and update.effective_user.id == ADMIN_ID:
+        booking_id = context.user_data['note_booking_id']
+        note_text = update.message.text
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("UPDATE bookings SET note=? WHERE id=?", (note_text, booking_id))
+        conn.commit()
+        conn.close()
+        await update.message.reply_text("Примітку збережено! 📝")
+        context.user_data['step'] = None
+        context.user_data['note_booking_id'] = None
+        return
+
+    # --- Можеш додати інші сценарії user_step нижче, якщо потрібно ---
+
+    # --- Якщо нічого не підійшло ---
+    await update.message.reply_text("Оберіть дію за допомогою кнопок нижче та подаруйте собі красу! 💖")
 # --- ІНШІ АДМІН ФУНКЦІЇ ---
 async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id if hasattr(update, "effective_user") else update.callback_query.from_user.id
