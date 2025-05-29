@@ -32,7 +32,8 @@ scheduler.start()
 def init_db():
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-    # ... Твої таблиці ...
+
+    # --- Таблиця клієнтів ---
     c.execute("""
         CREATE TABLE IF NOT EXISTS clients (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,6 +45,8 @@ def init_db():
             updated_at TEXT
         )
     """)
+
+    # --- Таблиця розкладу ---
     c.execute("""
         CREATE TABLE IF NOT EXISTS schedule (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,12 +54,15 @@ def init_db():
             times TEXT
         )
     """)
+
+    # --- Таблиця вихідних днів ---
     c.execute("""
         CREATE TABLE IF NOT EXISTS deleted_days (
             date TEXT PRIMARY KEY
         )
     """)
-    # Додаємо нову таблицю прайсу:
+
+    # --- Таблиця прайсу ---
     c.execute("""
         CREATE TABLE IF NOT EXISTS price_list (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,7 +70,22 @@ def init_db():
             price INTEGER
         )
     """)
-    # Якщо таблиця порожня — наповнюємо дефолтними послугами:
+
+    # --- Таблиця записів (bookings) ---
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS bookings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            client_id INTEGER,
+            procedure TEXT,
+            date TEXT,
+            time TEXT,
+            status TEXT,
+            note TEXT
+        )
+    """)
+
+    # --- Додаємо дефолтні послуги, якщо таблиця price_list порожня ---
     c.execute("SELECT COUNT(*) FROM price_list")
     if c.fetchone()[0] == 0:
         services = [
@@ -80,12 +101,16 @@ def init_db():
             ("Фарбування вій", 150),
         ]
         c.executemany("INSERT INTO price_list (name, price) VALUES (?, ?)", services)
+
+    # --- Додаємо поле note до bookings, якщо його немає (на випадок міграцій старої БД) ---
     try:
         c.execute("ALTER TABLE bookings ADD COLUMN note TEXT")
     except sqlite3.OperationalError:
         pass
+
     conn.commit()
     conn.close()
+
 
 # --- 2. Ось тут вставляєш функцію для виводу прайсу ---
 def get_price_text():
