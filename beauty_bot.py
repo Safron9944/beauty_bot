@@ -299,7 +299,7 @@ async def clients_top_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     buttons = []
     for idx, (client_id, name, phone, num, total) in enumerate(rows, 1):
         text += f"{idx}. {name} — {num} записів, {total} грн\n"
-        buttons.append([InlineKeyboardButton(f"{name}", callback_data=f"clientphone_{phone}"
+        buttons.append([InlineKeyboardButton(f"{name}", callback_data=f"clientphone_{clean_phone(phone)}"
 )])
     buttons.append([InlineKeyboardButton("⬅️ Назад", callback_data="clients_service")])
     await update.callback_query.edit_message_text(
@@ -605,6 +605,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
+    print("CALLBACK DATA:", query.data)
 
     if query.data == "manage_schedule":
         await manage_schedule_handler(update, context)
@@ -778,16 +779,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data == "clients_top":
         await clients_top_handler(update, context)
         return
+    if query.data.startswith("clientphone_"):
+        phone = query.data.replace("clientphone_", "")
+        await show_client_card_by_phone(update, context, phone)
+        return
     if query.data == "client_add":
         await client_add_handler(update, context)
         return
     if query.data == "client_search_start":
         await client_search_start_handler(update, context)
         return
-    if query.data.startswith("clientphone_"):
-        phone = query.data.replace("clientphone_", "")
-        await show_client_card_by_phone(update, context, phone)
-        return
+
 
     # Далі всі інші гілки button_handler...
     if query.data == 'edit_schedule':
