@@ -73,7 +73,6 @@ def init_db():
         )
     """)
 
-
     # Заповнення прайсу дефолтними значеннями, якщо він порожній
     c.execute("SELECT COUNT(*) FROM price_list")
     if c.fetchone()[0] == 0:
