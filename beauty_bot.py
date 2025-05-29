@@ -341,12 +341,14 @@ async def client_add_text_handler(update: Update, context: ContextTypes.DEFAULT_
             conn.commit()
             client_id = c.lastrowid
             await update.message.reply_text("Клієнта додано! Ось його картка:")
+            # Тут update - це message, після команди додавання може бути callback_query!
             await show_client_card(update, context, client_id)
         except sqlite3.IntegrityError:
             await update.message.reply_text("Клієнт із цим телефоном вже існує!")
         conn.close()
         context.user_data.pop('client_add', None)
         return
+
 
 async def client_search_start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop('client_add', None)   # Важливо!
@@ -361,7 +363,7 @@ async def client_search_text_handler(update: Update, context: ContextTypes.DEFAU
     c = conn.cursor()
     c.execute("""
         SELECT id, name, phone FROM clients 
-        WHERE LOWER(name) LIKE ? OR phone LIKE ? 
+        WHERE LOWER(name) LIKE ? OR REPLACE(phone, '+', '') LIKE REPLACE(?, '+', '')
         LIMIT 10
     """, (f"%{search}%", f"%{search}%"))
     rows = c.fetchall()
@@ -375,12 +377,18 @@ async def client_search_text_handler(update: Update, context: ContextTypes.DEFAU
         await update.message.reply_text("Оберіть клієнта:", reply_markup=InlineKeyboardMarkup(buttons))
     context.user_data.pop('client_search', None)
 
+
 async def show_client_card(update, context, client_id):
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
     c.execute("SELECT name, phone, note FROM clients WHERE id=?", (client_id,))
-    name, phone, note = c.fetchone()
-    # Всього записів і сума
+    result = c.fetchone()
+    if not result:
+        await context.bot.send_message(chat_id=update.effective_user.id, text="Клієнта не знайдено.")
+        conn.close()
+        return
+    name, phone, note = result
+    # Далі як було...
     c.execute("""
         SELECT COUNT(*), COALESCE(SUM(price_list.price),0), MAX(bookings.date)
         FROM bookings 
@@ -388,7 +396,6 @@ async def show_client_card(update, context, client_id):
         WHERE client_id = ?
     """, (client_id,))
     total_count, total_sum, last_date = c.fetchone()
-    # Топ-процедури
     c.execute("""
         SELECT procedure, COUNT(*) FROM bookings 
         WHERE client_id=?
@@ -412,11 +419,14 @@ async def show_client_card(update, context, client_id):
          InlineKeyboardButton("📋 Вся історія записів", callback_data=f"client_history_{client_id}")],
         [InlineKeyboardButton("⬅️ Назад", callback_data="clients_service")]
     ]
-    # Відповідь для callback або для повідомлення (врахуй — update.message чи update.callback_query)
+    # Гнучка відправка — якщо є message, якщо ні — через send_message
     if hasattr(update, "message") and update.message:
         await update.message.reply_text(txt, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
+    elif hasattr(update, "callback_query") and update.callback_query:
+        await update.callback_query.message.reply_text(txt, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
     else:
-        await update.callback_query.edit_message_text(txt, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
+        await context.bot.send_message(chat_id=update.effective_user.id, text=txt, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
+
 
 # --- TEXT HANDLER ---
 
