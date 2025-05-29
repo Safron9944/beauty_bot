@@ -1,7 +1,6 @@
 from dotenv import load_dotenv
 import os
 import re
-import sqlite3
 
 load_dotenv()
 TOKEN = os.getenv('TELEGRAM_TOKEN')
@@ -34,28 +33,45 @@ scheduler.start()
 def init_db():
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-
-    # --- Таблиця клієнтів ---
+    # Твої інші таблиці:
     c.execute("""
         CREATE TABLE IF NOT EXISTS clients (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT,
-            phone TEXT UNIQUE,
-            first_seen TEXT,
-            last_seen TEXT,
-            total_visits INTEGER DEFAULT 1,
-            notes TEXT
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        phone TEXT UNIQUE,
+        first_seen TEXT,
+        last_seen TEXT,
+        total_visits INTEGER DEFAULT 1,
+        notes TEXT
         )
     """)
+    # --- Таблиця клієнтів ---
+    c.execute("""
+              CREATE TABLE IF NOT EXISTS clients
+              (
+                  id
+                  INTEGER
+                  PRIMARY
+                  KEY
+                  AUTOINCREMENT,
+                  name
+                  TEXT,
+                  phone
+                  TEXT
+                  UNIQUE,
+                  first_seen TEXT,
+                                               last_seen TEXT,
+                                               total_visits INTEGER DEFAULT 1,
+                                               notes TEXT
+              )
+    """)
 
-    # --- Таблиця днів, коли не працюємо ---
     c.execute("""
         CREATE TABLE IF NOT EXISTS deleted_days (
             date TEXT PRIMARY KEY
         )
     """)
-
-    # --- Таблиця прайсу ---
+    # Додаємо нову таблицю прайсу:
     c.execute("""
         CREATE TABLE IF NOT EXISTS price_list (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,8 +79,7 @@ def init_db():
             price INTEGER
         )
     """)
-
-    # --- Заповнення прайсу дефолтними значеннями ---
+    # Якщо таблиця порожня — наповнюємо дефолтними послугами:
     c.execute("SELECT COUNT(*) FROM price_list")
     if c.fetchone()[0] == 0:
         services = [
@@ -80,40 +95,12 @@ def init_db():
             ("Фарбування вій", 150),
         ]
         c.executemany("INSERT INTO price_list (name, price) VALUES (?, ?)", services)
-
-    # --- Додаємо колонку "note" до bookings, якщо її ще немає ---
     try:
         c.execute("ALTER TABLE bookings ADD COLUMN note TEXT")
     except sqlite3.OperationalError:
         pass
-
     conn.commit()
     conn.close()
-
-    # --- Оновлення/додавання клієнта ---
-    conn2 = sqlite3.connect('appointments.db')
-    c2 = conn2.cursor()
-    today = datetime.now().strftime("%Y-%m-%d")
-
-    c2.execute("SELECT id, total_visits FROM clients WHERE phone=?", (user_phone,))
-    existing = c2.fetchone()
-
-    if existing:
-        client_id, total_visits = existing
-        c2.execute("""
-                   UPDATE clients
-                   SET last_seen=?,
-                       total_visits=?
-                   WHERE id = ?
-                   """, (today, total_visits + 1, client_id))
-    else:
-        c2.execute("""
-                   INSERT INTO clients (name, phone, first_seen, last_seen, total_visits)
-                   VALUES (?, ?, ?, ?, 1)
-                   """, (user_name, user_phone, today, today))
-
-    conn2.commit()
-    conn2.close()
 
 # --- 2. Ось тут вставляєш функцію для виводу прайсу ---
 def get_price_text():
@@ -523,23 +510,20 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn.close()
 
         if not rows:
-            await query.message.reply_text("Клієнтська база порожня.")
+            await query.message.reply_text("База клієнтів порожня.")
             return
+
+        await query.message.reply_text("📋 *Клієнти, які були найчастіше:*", parse_mode="Markdown")
 
         for name, phone, visits, last_seen in rows:
             msg = (
                 f"👤 *{name}*\n"
                 f"📱 `{phone}`\n"
-                f"🔁 Візитів: *{visits}*\n"
-                f"🕓 Останній візит: {last_seen}"
+                f"🔁 Візитів: {visits}\n"
+                f"🗓 Останній візит: {last_seen}"
             )
-            buttons = [
-                [InlineKeyboardButton("👁 Картка клієнта", callback_data=f"client_card_{phone}")],
-                [InlineKeyboardButton("📝 Редагувати примітку", callback_data=f"edit_client_note_{phone}")]
-            ]
-            await query.message.reply_text(
-                msg, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown"
-            )
+            buttons = [[InlineKeyboardButton("👤 Картка клієнта", callback_data=f"client_card_{phone}")]]
+            await query.message.reply_text(msg, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(buttons))
         return
 
     if query.data == "manage_schedule":
@@ -1061,20 +1045,21 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_step == 'edit_times' and update.effective_user.id == ADMIN_ID:
         day = context.user_data.get('edit_day')
         new_times = text.strip()
-        with sqlite3.connect('appointments.db') as conn:
-            c = conn.cursor()
-            c.execute("SELECT id FROM schedule WHERE date = ?", (day,))
-            if c.fetchone():
-                c.execute("UPDATE schedule SET times=? WHERE date=?", (new_times, day))
-            else:
-                c.execute("INSERT INTO schedule (date, times) VALUES (?, ?)", (day, new_times))
-            conn.commit()
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("SELECT id FROM schedule WHERE date = ?", (day,))
+        exists = c.fetchone()
+        if exists:
+            c.execute("UPDATE schedule SET times=? WHERE date=?", (new_times, day))
+        else:
+            c.execute("INSERT INTO schedule (date, times) VALUES (?, ?)", (day, new_times))
+        conn.commit()
+        conn.close()
         await update.message.reply_text(f"✅ Для дня {day} оновлено години: {new_times}")
         context.user_data['step'] = None
         context.user_data['edit_day'] = None
         return
 
-    # --- Обробка запису клієнта ---
     if user_step == 'get_fullinfo':
         context.user_data['fullinfo'] = text
         procedure = context.user_data.get('procedure')
@@ -1082,42 +1067,45 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         time = context.user_data.get('time')
         fullinfo = context.user_data.get('fullinfo')
         user_id = update.effective_user.id
-
         try:
             name, phone = [s.strip() for s in fullinfo.split(',', 1)]
         except Exception:
             name, phone = fullinfo.strip(), "N/A"
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                  (user_id, name, phone, procedure, date, time, "Очікує підтвердження"))
+        booking_id = c.lastrowid
+        conn.commit()
+        conn.close()
+        # --- ОНОВЛЕННЯ або СТВОРЕННЯ КЛІЄНТА У clients ---
+        today_str = datetime.now().strftime("%d.%m.%Y")
 
-        with sqlite3.connect('appointments.db') as conn:
-            c = conn.cursor()
-            c.execute(
-                "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (user_id, name, phone, procedure, date, time, "Очікує підтвердження")
-            )
-            booking_id = c.lastrowid
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
 
-            # Перевірка існування клієнта
-            c.execute("SELECT id FROM clients WHERE phone=?", (phone,))
-            existing = c.fetchone()
+        # Перевірка: чи є вже клієнт за номером телефону?
+        c.execute("SELECT id FROM clients WHERE phone=?", (phone,))
+        existing = c.fetchone()
 
-            today_str = datetime.now().strftime("%d.%m.%Y")
+        if existing:
+            # Якщо є — оновлюємо останній візит і кількість візитів
+            c.execute("""
+                      UPDATE clients
+                      SET last_seen=?,
+                          total_visits=total_visits + 1
+                      WHERE phone = ?
+                      """, (today_str, phone))
+        else:
+            # Якщо нема — створюємо нового клієнта
+            c.execute("""
+                      INSERT INTO clients (name, phone, first_seen, last_seen)
+                      VALUES (?, ?, ?, ?)
+                      """, (name, phone, today_str, today_str))
 
-            if existing:
-                c.execute("""
-                          UPDATE clients
-                          SET last_seen=?,
-                              total_visits=total_visits + 1
-                          WHERE phone = ?
-                          """, (today_str, phone))
-            else:
-                c.execute("""
-                          INSERT INTO clients (name, phone, first_seen, last_seen, total_visits)
-                          VALUES (?, ?, ?, ?, 1)
-                          """, (name, phone, today_str, today_str))
-            conn.commit()
-
+        conn.commit()
+        conn.close()
         add_to_google_sheet(name, "", phone, procedure, date, time)
-
         keyboard = [
             [InlineKeyboardButton("✅ Підтвердити", callback_data=f"confirm_{booking_id}"),
              InlineKeyboardButton("❌ Відмінити", callback_data=f"cancel_{booking_id}")],
@@ -1127,7 +1115,6 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("📍 Геолокація", url=MASTER_GEO_LINK)],
             [InlineKeyboardButton(f"👩‍🎨 Майстер: {MASTER_NAME}", callback_data='master_phone')],
         ]
-
         await update.message.reply_text(
             f"🎉 Ти записана на *{procedure}* {date} о {time}! Я вже чекаю зустрічі з тобою, ти надихаєш! 💖\n\n"
             f"👩‍🎨 Майстер: {MASTER_NAME}\n"
@@ -1137,19 +1124,18 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
-
         await context.bot.send_message(
             chat_id=ADMIN_ID,
-            text=f"📥 Новий запис:\nПІБ/Телефон: {name} / {phone}\nПроцедура: {procedure}\nДата: {date} о {time}"
+            text=f"""📥 Новий запис:
+ПІБ/Телефон: {name} / {phone}
+Процедура: {procedure}
+Дата: {date} о {time}"""
         )
-
-        # Планування нагадувань
         event_time = datetime.strptime(f"{date} {time}", "%d.%m %H:%M")
         remind_day = event_time - timedelta(days=1)
         remind_time = remind_day.replace(hour=10, minute=0, second=0, microsecond=0)
         remind_2h = event_time - timedelta(hours=2)
         now = datetime.now()
-
         if remind_time > now:
             scheduler.add_job(
                 send_reminder,
@@ -1157,7 +1143,6 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 run_date=remind_time,
                 args=[user_id, procedure, date, time, "day"]
             )
-
         if remind_2h > now:
             scheduler.add_job(
                 send_reminder,
@@ -1165,22 +1150,29 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 run_date=remind_2h,
                 args=[user_id, procedure, date, time, "2h"]
             )
+        context.user_data.clear()
+        return
 
-        # --- Нагадування ---
-        async def send_reminder(user_id, procedure, date, time, mode="day"):
-            from telegram import Bot
-            bot = Bot(token=TOKEN)  # Краще ініціалізувати бота глобально, щоб не створювати кожного разу
-            try:
-                if mode == "day":
-                    text = f"⏰ Нагадування: завтра у тебе запис на *{procedure}* о {time} {date}."
-                elif mode == "2h":
-                    text = f"⏰ Нагадування: через 2 години у тебе запис на *{procedure}* о {time} {date}."
-                else:
-                    text = f"⏰ Нагадування: у тебе запис на *{procedure}* о {time} {date}."
+    else:
+        await update.message.reply_text("Оберіть дію за допомогою кнопок нижче та подаруйте собі красу! 💖")
 
-                await bot.send_message(chat_id=user_id, text=text, parse_mode="Markdown")
-            except Exception as e:
-                print(f"Error sending reminder to {user_id}: {e}")
+# --- Нагадування ---
+async def send_reminder(user_id, procedure, date, time, mode="day"):
+    from telegram import Bot
+    bot = Bot(token=TOKEN)
+    try:
+        if mode == "day":
+            text = f"⏰ Красива, нагадую: вже завтра твій бʼюті-запис на {procedure} {date} о {time}! Я чекаю тебе з гарним настроєм і натхненням ✨ До зустрічі, сонечко! 💞"
+        elif mode == "2h":
+            text = f"💬 Твій бʼюті-час вже зовсім скоро — через 2 годинки! {procedure} {date} о {time} 🌷 Я вже готую найкращі фарби, пензлі та гарячий чай! До зустрічі, зіронько! 👑"
+        else:
+            text = f"Нагадування про запис: {procedure} {date} о {time}."
+        await bot.send_message(
+            chat_id=user_id,
+            text=text
+        )
+    except Exception as e:
+        print(f"Не вдалося надіслати нагадування: {e}")
 async def admin_stats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     keyboard = [
