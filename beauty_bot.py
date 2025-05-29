@@ -324,8 +324,7 @@ async def clients_top_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     buttons = []
     for idx, (client_id, name, phone, num, total) in enumerate(rows, 1):
         text += f"{idx}. {name} — {num} записів, {total} грн\n"
-        buttons.append([InlineKeyboardButton(f"{name}", callback_data=f"clientphone_{clean_phone(phone)}"
-)])
+        buttons.append([InlineKeyboardButton(f"{name}", callback_data=f"client_{client_id}")])
     buttons.append([InlineKeyboardButton("⬅️ Назад", callback_data="clients_service")])
     await update.callback_query.edit_message_text(
         text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown"
@@ -406,7 +405,7 @@ async def client_search_text_handler(update: Update, context: ContextTypes.DEFAU
         await update.message.reply_text("Клієнта не знайдено.")
     else:
         buttons = [
-            [InlineKeyboardButton(f"{name} ({phone})", callback_data=f"clientphone_{clean_phone(phone)}")]
+            [InlineKeyboardButton(f"{name} ({phone})", callback_data=f"client_{client_id}")]
             for client_id, name, phone in rows
         ]
         buttons.append([InlineKeyboardButton("⬅️ Назад", callback_data="clients_service")])
