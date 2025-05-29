@@ -869,7 +869,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         row = c.fetchone()
         conn.close()
         name = row[0] if row else "Невідомий"
-        await query.message.reply_text(f"Введіть нову примітку для {name}:")
+        await query.message.reply_text(
+            f"Введіть нову примітку для {name}:",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("⬅️ Назад", callback_data=f"client_{client_id}")]
+            ])
+        )
         context.user_data['edit_note_client_id'] = client_id
         context.user_data['step'] = 'edit_note'
         return
