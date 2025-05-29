@@ -672,7 +672,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     [InlineKeyboardButton("👁️ Ламінування вій (виразний погляд)", callback_data='proc_lam_lashes')],
                     [InlineKeyboardButton("⬅️ Назад до картки клієнта", callback_data=f'client_{client_id}')]
                 ]
-                await query.edit_message_text(
+                await query.message.reply_text(
                     f"Оберіть процедуру для запису клієнта {name}:",
                     reply_markup=InlineKeyboardMarkup(keyboard)
                 )
