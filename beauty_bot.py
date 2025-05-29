@@ -672,9 +672,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     [InlineKeyboardButton("👁️ Ламінування вій (виразний погляд)", callback_data='proc_lam_lashes')],
                     [InlineKeyboardButton("⬅️ Назад до картки клієнта", callback_data=f'client_{client_id}')]
                 ]
-                print("==> [client_book_] about to send reply_text")
-                result = await query.message.reply_text(
-                    f"Оберіть процедуру для запису клієнта {name}:",
+                print("==> [client_book_] send_message sent, result:", result)
+                result = await context.bot.send_message(
+                    chat_id=query.message.chat.id,
+                    text=f"Оберіть процедуру для запису клієнта {name}:",
                     reply_markup=InlineKeyboardMarkup(keyboard)
                 )
                 print("==> [client_book_] reply_text sent, result:", result)
