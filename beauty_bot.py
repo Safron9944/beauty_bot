@@ -300,12 +300,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.callback_query.edit_message_text(welcome, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
 # --- АДМІН СЕРВІС ---
-    import sqlite3
-    from datetime import datetime, timedelta
-    from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-    from telegram.ext import ContextTypes
-
-    # --- ГОЛОВНЕ МЕНЮ ДЛЯ АДМІНА ---
     async def admin_service_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = [
             [InlineKeyboardButton("🗓️ Керування графіком", callback_data="manage_schedule")],
@@ -324,7 +318,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown"
         )
 
-    # --- КЕРУВАННЯ ГРАФІКОМ ---
     async def manage_schedule_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         keyboard = [
@@ -343,7 +336,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
-    # --- РЕДАГУВАННЯ ГРАФІКУ (АДМІН) ---
     async def edit_schedule_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         today = datetime.now().date()
@@ -376,7 +368,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = "Оберіть день для редагування або додавання вихідного."
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
-    # --- ВИСТАВЛЕННЯ ВИХІДНОГО ДНЯ ---
     async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         selected_date = query.data.replace('delete_day_', '')  # Отримуємо вибрану дату
@@ -393,7 +384,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Виводимо повідомлення про видалення
         await query.message.reply_text(f"День {selected_date} було успішно видалено з графіку!")
 
-    # --- ПЕРЕГЛЯД КАЛЕНДАРЯ НА СЬОГОДНІ ---
     async def calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         today = datetime.now().date()
@@ -416,7 +406,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await query.message.reply_text(msg)
 
-    # --- ПЕРЕГЛЯД КАЛЕНДАРЯ НА ТИЖДЕНЬ ---
     async def weekcalendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         today = datetime.now().date()
@@ -442,92 +431,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn.close()
         await query.message.reply_text(msg)
 
-    # --- КЛІЄНТСЬКА БАЗА ---
-    async def client_base_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        query = update.callback_query
-        keyboard = [
-            [InlineKeyboardButton("🆕 Додати нового клієнта", callback_data="create_new_client")],
-            [InlineKeyboardButton("🔍 Пошук клієнта", callback_data="search_client")],
-            [InlineKeyboardButton("📋 Оновити клієнтську базу", callback_data="update_client_base")],
-            [InlineKeyboardButton("🔔 Нагадування про неактивних клієнтів", callback_data="remind_inactive_clients")],
-            [InlineKeyboardButton("⬅️ Назад", callback_data="admin_service")]
-        ]
-        text = (
-            "👥 *Клієнтська база*\n\n"
-            "Оберіть дію:\n"
-            "— Додати нового клієнта\n"
-            "— Пошук клієнта\n"
-            "— Оновити клієнтську базу\n"
-            "— Нагадування про неактивних клієнтів"
-        )
-        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
-
-    # --- ДОДАВАННЯ НОВОГО КЛІЄНТА ---
-    async def create_new_client_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        query = update.callback_query
-        await query.message.reply_text("Введіть ім'я нового клієнта:")
-        context.user_data['step'] = 'waiting_for_name'
-
-    # --- Пошук клієнта ---
-    async def search_client_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        query = update.callback_query
-        await query.message.reply_text("Введіть ім'я або номер телефону клієнта для пошуку:")
-        context.user_data['step'] = 'searching_client'
-
-    # --- ОБРОБКА ВВЕДЕННЯ ДЛЯ НОВОГО КЛІЄНТА І ПОШУКУ ---
-    async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        user_step = context.user_data.get('step')
-        text = update.message.text
-
-        if user_step == 'waiting_for_name':
-            context.user_data['new_client_name'] = text
-            context.user_data['step'] = 'waiting_for_lastname'
-            await update.message.reply_text("Введіть прізвище нового клієнта:")
-
-        elif user_step == 'waiting_for_lastname':
-            context.user_data['new_client_lastname'] = text
-            context.user_data['step'] = 'waiting_for_phone'
-            await update.message.reply_text("Введіть номер телефону клієнта (формат: +380xxxxxxxxx):")
-
-        elif user_step == 'waiting_for_phone':
-            context.user_data['new_client_phone'] = text
-            context.user_data['step'] = 'waiting_for_procedure'
-            await update.message.reply_text("Введіть процедуру, яку клієнт замовив:")
-
-        elif user_step == 'waiting_for_procedure':
-            context.user_data['new_client_procedure'] = text
-
-            name = context.user_data['new_client_name']
-            lastname = context.user_data['new_client_lastname']
-            phone = context.user_data['new_client_phone']
-            procedure = context.user_data['new_client_procedure']
-            first_seen = datetime.now().strftime("%Y-%m-%d")
-            last_seen = first_seen
-            total_visits = 1
-            notes = None
-
-            conn = sqlite3.connect('appointments.db')
-            c = conn.cursor()
-
-            # Додаємо нового клієнта в базу
-            c.execute("""
-                      INSERT INTO clients (name, lastname, phone, first_seen, last_seen, total_visits, notes)
-                      VALUES (?, ?, ?, ?, ?, ?, ?)
-                      """, (name, lastname, phone, first_seen, last_seen, total_visits, notes))
-
-            # Додаємо процедуру
-            c.execute("""
-                      INSERT INTO bookings (phone, procedure, date, time, status)
-                      VALUES (?, ?, ?, ?, ?)
-                      """, (phone, procedure, first_seen, '10:00', 'Записано'))
-
-            conn.commit()
-            conn.close()
-
-            await update.message.reply_text(
-                f"Клієнта {name} {lastname} з номером {phone} успішно додано!\nПроцедура: {procedure}")
-            context.user_data['step'] = None
-            
     # Виводимо повідомлення з кнопками
     await query.edit_message_text(
         "🌈 Обери день для редагування або додавання часу:\n"
