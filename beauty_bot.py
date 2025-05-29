@@ -161,8 +161,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("💎 Записатися на процедуру", callback_data='book')],
         [InlineKeyboardButton("📋 Мої записи", callback_data='check_booking')],
         [InlineKeyboardButton("📋 Прайс", callback_data='show_price')],
-        [InlineKeyboardButton("📸 Instagram", url=INSTAGRAM_LINK)],
-        [InlineKeyboardButton("📍 Геолокація", url=MASTER_GEO_LINK)],
         [InlineKeyboardButton(f"👩‍🎨 Ваш майстер: {MASTER_NAME}", callback_data='master_phone')]
     ]
     if user_id == ADMIN_ID:
