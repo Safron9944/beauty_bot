@@ -653,28 +653,33 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
         if query.data.startswith("client_book_"):
-            print("==> [client_book_] step before:", context.user_data.get('step'))
-            client_id = int(query.data.replace("client_book_", ""))
-            with sqlite3.connect('appointments.db') as conn:
-                c = conn.cursor()
-                c.execute("SELECT name FROM clients WHERE id=?", (client_id,))
-                row = c.fetchone()
-            name = row[0] if row else "Невідомий"
-            context.user_data['booking_client_id'] = client_id
-            context.user_data['step'] = 'book_procedure'
-            print("==> [client_book_] step after:", context.user_data.get('step'))
-            print("==> [client_book_] booking_client_id:", context.user_data.get('booking_client_id'))
-            keyboard = [
-                [InlineKeyboardButton("✨ Корекція брів (ідеальна форма)", callback_data='proc_brows')],
-                [InlineKeyboardButton("🎨 Фарбування + корекція брів", callback_data='proc_tint_brows')],
-                [InlineKeyboardButton("🌟 Ламінування брів (WOW-ефект)", callback_data='proc_lam_brows')],
-                [InlineKeyboardButton("👁️ Ламінування вій (виразний погляд)", callback_data='proc_lam_lashes')],
-                [InlineKeyboardButton("⬅️ Назад до картки клієнта", callback_data=f'client_{client_id}')]
-            ]
-            await query.edit_message_text(
-                f"Оберіть процедуру для запису клієнта {name}:",
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
+            try:
+                print("==> [client_book_] step before:", context.user_data.get('step'))
+                client_id = int(query.data.replace("client_book_", ""))
+                with sqlite3.connect('appointments.db') as conn:
+                    c = conn.cursor()
+                    c.execute("SELECT name FROM clients WHERE id=?", (client_id,))
+                    row = c.fetchone()
+                name = row[0] if row else "Невідомий"
+                context.user_data['booking_client_id'] = client_id
+                context.user_data['step'] = 'book_procedure'
+                print("==> [client_book_] step after:", context.user_data.get('step'))
+                print("==> [client_book_] booking_client_id:", context.user_data.get('booking_client_id'))
+                keyboard = [
+                    [InlineKeyboardButton("✨ Корекція брів (ідеальна форма)", callback_data='proc_brows')],
+                    [InlineKeyboardButton("🎨 Фарбування + корекція брів", callback_data='proc_tint_brows')],
+                    [InlineKeyboardButton("🌟 Ламінування брів (WOW-ефект)", callback_data='proc_lam_brows')],
+                    [InlineKeyboardButton("👁️ Ламінування вій (виразний погляд)", callback_data='proc_lam_lashes')],
+                    [InlineKeyboardButton("⬅️ Назад до картки клієнта", callback_data=f'client_{client_id}')]
+                ]
+                await query.edit_message_text(
+                    f"Оберіть процедуру для запису клієнта {name}:",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+            except Exception as e:
+                import traceback
+                print("==> [client_book_] ERROR:", e)
+                print(traceback.format_exc())
             return
 
         # ...інші if...
