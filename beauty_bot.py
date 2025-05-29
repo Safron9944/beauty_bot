@@ -652,14 +652,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(price_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
         return
 
-    async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        query = update.callback_query
-        await query.answer()
-        user_id = query.from_user.id
-        print("CALLBACK DATA:", query.data)
-
-        # ...інші if...
-
         if query.data.startswith("client_book_"):
             client_id = int(query.data.replace("client_book_", ""))
             with sqlite3.connect('appointments.db') as conn:
