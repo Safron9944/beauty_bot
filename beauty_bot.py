@@ -32,17 +32,16 @@ scheduler.start()
 def init_db():
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-    # Твої інші таблиці:
+    # ... Твої таблиці ...
     c.execute("""
-        CREATE TABLE IF NOT EXISTS bookings (
+        CREATE TABLE IF NOT EXISTS clients (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT,
-            phone TEXT,
-            procedure TEXT,
-            date TEXT,
-            time TEXT,
+            phone TEXT UNIQUE,
             user_id INTEGER,
-            status TEXT DEFAULT 'Очікує підтвердження'
+            note TEXT,
+            created_at TEXT,
+            updated_at TEXT
         )
     """)
     c.execute("""
@@ -187,12 +186,12 @@ async def manage_schedule_handler(update: Update, context: ContextTypes.DEFAULT_
 # --- ГОЛОВНЕ МЕНЮ ДЛЯ АДМІНА ---
 async def admin_service_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [InlineKeyboardButton("🗓️ Керування графіком", callback_data="manage_schedule")],
-        [InlineKeyboardButton("💸 Редагувати прайс", callback_data="edit_price")],
-        [InlineKeyboardButton("📊 Статистика", callback_data="admin_stats")],
-        [InlineKeyboardButton("👥 Клієнтська база", callback_data="client_base")],
-        [InlineKeyboardButton("⬅️ Головне меню", callback_data="back_to_menu")]
-    ]
+    [InlineKeyboardButton("🗓️ Керування графіком", callback_data="manage_schedule")],
+    [InlineKeyboardButton("💸 Редагувати прайс", callback_data="edit_price")],
+    [InlineKeyboardButton("📊 Статистика", callback_data="admin_stats")],
+    [InlineKeyboardButton("👥 Клієнти", callback_data="clients_service")],
+    [InlineKeyboardButton("⬅️ Головне меню", callback_data="back_to_menu")]
+]
     text = (
         "🌟 *Адмін-сервіс*\n\n"
         "Керуйте розкладом, дивіться всі записи і тримайте красу під контролем 👑\n"
@@ -265,6 +264,146 @@ async def edit_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Вибрані години: {selected}\nНатискай на час, щоб додати або прибрати його зі списку, або введи свій.",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
+async def clients_service_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [
+        [InlineKeyboardButton("🏆 Топ-10 клієнтів", callback_data="clients_top")],
+        [InlineKeyboardButton("➕ Додати нового клієнта", callback_data="client_add")],
+        [InlineKeyboardButton("🔍 Знайти клієнта", callback_data="client_search_start")],
+        [InlineKeyboardButton("⬅️ Назад", callback_data="admin_service")]
+    ]
+    text = "👥 *Клієнти — меню адміністратора*\nОберіть дію:"
+    await update.callback_query.edit_message_text(
+        text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown"
+    )
+async def clients_top_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+    c.execute("""
+        SELECT clients.id, clients.name, clients.phone, COUNT(bookings.id) as num, 
+            COALESCE(SUM(price_list.price), 0)
+        FROM clients
+        LEFT JOIN bookings ON bookings.client_id = clients.id
+        LEFT JOIN price_list ON bookings.procedure = price_list.name
+        GROUP BY clients.id
+        ORDER BY num DESC, clients.name
+        LIMIT 10
+    """)
+    rows = c.fetchall()
+    conn.close()
+    text = "🏆 *Топ-10 клієнтів:*\n"
+    buttons = []
+    for idx, (client_id, name, phone, num, total) in enumerate(rows, 1):
+        text += f"{idx}. {name} — {num} записів, {total} грн\n"
+        buttons.append([InlineKeyboardButton(f"{name}", callback_data=f"client_{client_id}")])
+    buttons.append([InlineKeyboardButton("⬅️ Назад", callback_data="clients_service")])
+    await update.callback_query.edit_message_text(
+        text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown"
+    )
+async def client_add_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.edit_message_text("Введіть ім'я та прізвище нового клієнта:")
+    context.user_data['client_add'] = {'step': 'name'}
+
+async def client_add_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    data = context.user_data.get('client_add')
+    if not data:
+        return
+    if data['step'] == 'name':
+        context.user_data['client_add']['name'] = update.message.text.strip()
+        context.user_data['client_add']['step'] = 'phone'
+        await update.message.reply_text("Введіть телефон клієнта (наприклад: +380...):")
+        return
+    if data['step'] == 'phone':
+        context.user_data['client_add']['phone'] = update.message.text.strip()
+        context.user_data['client_add']['step'] = 'note'
+        await update.message.reply_text("Додайте примітку (або пропустіть):")
+        return
+    if data['step'] == 'note':
+        note = update.message.text.strip()
+        if note.lower() == 'пропустити':
+            note = ""
+        context.user_data['client_add']['note'] = note
+        # Додаємо в БД
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        try:
+            c.execute(
+                "INSERT INTO clients (name, phone, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                (context.user_data['client_add']['name'], context.user_data['client_add']['phone'], note, now, now)
+            )
+            conn.commit()
+            client_id = c.lastrowid
+            await update.message.reply_text("Клієнта додано! Ось його картка:")
+            await show_client_card(update, context, client_id)
+        except sqlite3.IntegrityError:
+            await update.message.reply_text("Клієнт із цим телефоном вже існує!")
+        conn.close()
+        context.user_data['client_add'] = None
+        return
+async def client_search_start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.edit_message_text("Введіть ім'я/прізвище або телефон клієнта:")
+    context.user_data['client_search'] = True
+
+async def client_search_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.user_data.get('client_search'):
+        return
+    search = update.message.text.strip().lower()
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+    c.execute("""
+        SELECT id, name, phone FROM clients 
+        WHERE LOWER(name) LIKE ? OR phone LIKE ? 
+        LIMIT 10
+    """, (f"%{search}%", f"%{search}%"))
+    rows = c.fetchall()
+    conn.close()
+    if not rows:
+        await update.message.reply_text("Клієнта не знайдено.")
+    else:
+        buttons = [[InlineKeyboardButton(f"{name} ({phone})", callback_data=f"client_{client_id}")]
+                   for client_id, name, phone in rows]
+        buttons.append([InlineKeyboardButton("⬅️ Назад", callback_data="clients_service")])
+        await update.message.reply_text("Оберіть клієнта:", reply_markup=InlineKeyboardMarkup(buttons))
+    context.user_data['client_search'] = False
+
+async def show_client_card(update, context, client_id):
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+    c.execute("SELECT name, phone, note FROM clients WHERE id=?", (client_id,))
+    name, phone, note = c.fetchone()
+    # Всього записів і сума
+    c.execute("""
+        SELECT COUNT(*), COALESCE(SUM(price_list.price),0), MAX(bookings.date)
+        FROM bookings 
+        LEFT JOIN price_list ON bookings.procedure = price_list.name
+        WHERE client_id = ?
+    """, (client_id,))
+    total_count, total_sum, last_date = c.fetchone()
+    # Топ-процедури
+    c.execute("""
+        SELECT procedure, COUNT(*) FROM bookings 
+        WHERE client_id=?
+        GROUP BY procedure ORDER BY COUNT(*) DESC LIMIT 2
+    """, (client_id,))
+    procs = c.fetchall()
+    conn.close()
+    procs_txt = "\n".join([f"— {p} ({cnt})" for p, cnt in procs]) if procs else "—"
+    txt = (
+        f"👤 *{name}*\n"
+        f"📱 {phone}\n\n"
+        f"Всього записів: {total_count}\n"
+        f"Витрачено: {total_sum} грн\n"
+        f"Останній візит: {last_date if last_date else '—'}\n"
+        f"ТОП-процедури:\n{procs_txt}\n\n"
+        f"📝 Примітка: “{note if note else '-'}”"
+    )
+    keyboard = [
+        [InlineKeyboardButton("📝 Редагувати примітку", callback_data=f"client_note_{client_id}")],
+        [InlineKeyboardButton("🔄 Записати ще раз", callback_data=f"client_book_{client_id}"),
+         InlineKeyboardButton("📋 Вся історія записів", callback_data=f"client_history_{client_id}")],
+        [InlineKeyboardButton("⬅️ Назад", callback_data="clients_service")]
+    ]
+    await update.message.reply_text(txt, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
 
 
 # --- ІНШІ АДМІН ФУНКЦІЇ ---
@@ -375,16 +514,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if query.data == "manage_schedule":
         await manage_schedule_handler(update, context)
-        return
-
-    if query.data == 'client_base':
-        await query.edit_message_text(
-            "🔎 Введіть *номер телефону* або *ім'я/прізвище* для пошуку клієнта:",
-            parse_mode="Markdown",
-            reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")]])
-        )
-        context.user_data['step'] = 'client_search'
         return
 
     if query.data == "admin_service":
@@ -549,6 +678,23 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         context.user_data['step'] = 'edit_times'
         return
+    if query.data == "clients_service":
+        await clients_service_handler(update, context)
+        return
+    if query.data == "clients_top":
+        await clients_top_handler(update, context)
+        return
+    if query.data == "client_add":
+        await client_add_handler(update, context)
+        return
+    if query.data == "client_search_start":
+        await client_search_start_handler(update, context)
+        return
+    if query.data.startswith("client_"):
+        client_id = int(query.data.split("_")[1])
+        await show_client_card(update, context, client_id)
+        return
+
 
     # Далі всі інші гілки button_handler...
     if query.data == 'edit_schedule':
@@ -812,6 +958,17 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_step = context.user_data.get('step')
     text = update.message.text
 
+    # --- Додавання нового клієнта ---
+    if context.user_data.get('client_add'):
+        await client_add_text_handler(update, context)
+        return
+
+    # --- Пошук клієнта ---
+    if context.user_data.get('client_search'):
+        await client_search_text_handler(update, context)
+        return
+
+    # --- Додавання примітки до запису (залишаємо як було) ---
     if user_step == 'add_note' and update.effective_user.id == ADMIN_ID:
         booking_id = context.user_data['note_booking_id']
         note_text = update.message.text
@@ -825,45 +982,10 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['note_booking_id'] = None
         return
 
-    if user_step == 'client_search' and update.effective_user.id == ADMIN_ID:
-        search = update.message.text.strip().lower()
-        conn = sqlite3.connect('appointments.db')
-        c = conn.cursor()
-        c.execute("""
-                  SELECT id, name, phone, date, procedure, time, status, note
-                  FROM bookings
-                  WHERE LOWER (name) LIKE ? OR phone LIKE ?
-                  ORDER BY date DESC
-                      LIMIT 10
-                  """, (f"%{search}%", f"%{search}%"))
-        rows = c.fetchall()
-        conn.close()
+    # --- Інші обробки user_step... ---
+    # ... (залишаєш свої обробники далі) ...
 
-        if not rows:
-            await update.message.reply_text("Не знайдено жодного клієнта. Спробуйте інший запит.")
-            context.user_data['step'] = None
-            return
 
-        for booking_id, name, phone, date, procedure, time, status, note in rows:
-            msg = (
-                f"👤 *{name}*\n"
-                f"📱 `{phone}`\n"
-                f"Дата: {date}\n"
-                f"Процедура: {procedure}\n"
-                f"Час: {time}\n"
-                f"Статус: {status}"
-            )
-            if note:
-                msg += f"\n📝 Примітка: _{note}_"
-            # Кнопка для додавання/редагування примітки!
-            buttons = [[InlineKeyboardButton("📝 Додати/редагувати примітку", callback_data=f"note_{booking_id}")]]
-            await update.message.reply_text(
-                msg,
-                reply_markup=InlineKeyboardMarkup(buttons),
-                parse_mode="Markdown"
-            )
-        context.user_data['step'] = None
-        return
 
     # --- ЗМІНА ЦІНИ В ПРАЙСІ ---
     if user_step == 'update_price' and update.effective_user.id == ADMIN_ID:
