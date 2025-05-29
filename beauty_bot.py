@@ -652,6 +652,38 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(price_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
         return
 
+    async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        query = update.callback_query
+        await query.answer()
+        user_id = query.from_user.id
+        print("CALLBACK DATA:", query.data)
+
+        # ...інші if...
+
+        if query.data.startswith("client_book_"):
+            client_id = int(query.data.replace("client_book_", ""))
+            with sqlite3.connect('appointments.db') as conn:
+                c = conn.cursor()
+                c.execute("SELECT name FROM clients WHERE id=?", (client_id,))
+                row = c.fetchone()
+            name = row[0] if row else "Невідомий"
+            context.user_data['booking_client_id'] = client_id
+            context.user_data['step'] = 'book_procedure'
+            keyboard = [
+                [InlineKeyboardButton("✨ Корекція брів (ідеальна форма)", callback_data='proc_brows')],
+                [InlineKeyboardButton("🎨 Фарбування + корекція брів", callback_data='proc_tint_brows')],
+                [InlineKeyboardButton("🌟 Ламінування брів (WOW-ефект)", callback_data='proc_lam_brows')],
+                [InlineKeyboardButton("👁️ Ламінування вій (виразний погляд)", callback_data='proc_lam_lashes')],
+                [InlineKeyboardButton("⬅️ Назад до картки клієнта", callback_data=f'client_{client_id}')]
+            ]
+            await query.edit_message_text(
+                f"Оберіть процедуру для запису клієнта {name}:",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+            return
+
+        # ...інші if...
+
     # Ось тут додаєш блоки для редагування прайсу
     if query.data == 'edit_price':
         conn = sqlite3.connect('appointments.db')
@@ -877,34 +909,29 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         client_id = int(query.data.replace("client_history_", ""))
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
+        # Вибираємо ім'я клієнта
         c.execute("SELECT name FROM clients WHERE id=?", (client_id,))
         row = c.fetchone()
         name = row[0] if row else "Невідомий"
+        # Вибираємо всі записи цього клієнта
         c.execute("SELECT procedure, date, time, status FROM bookings WHERE client_id=? ORDER BY date DESC, time DESC",
                   (client_id,))
         visits = c.fetchall()
         conn.close()
         if visits:
-            msg = f"Історія записів для {name}:\n"
+            msg = f"📋 *Історія записів для* _{name}_:\n\n"
             for proc, date, time, status in visits:
-                msg += f"• {date} о {time}: {proc} ({status})\n"
+                msg += f"• *{date}* о *{time}* — {proc} (_{status}_)\n"
         else:
-            msg = f"У {name} ще не було записів."
-        await query.message.reply_text(msg)
+            msg = f"У клієнта {name} ще не було записів."
+        keyboard = [
+            [InlineKeyboardButton("⬅️ До картки клієнта", callback_data=f"client_{client_id}")]
+        ]
+        await query.edit_message_text(msg, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
         return
 
-    if query.data.startswith("client_book_"):
-        client_id = int(query.data.replace("client_book_", ""))
-        conn = sqlite3.connect('appointments.db')
-        c = conn.cursor()
-        c.execute("SELECT name FROM clients WHERE id=?", (client_id,))
-        row = c.fetchone()
-        conn.close()
-        name = row[0] if row else "Невідомий"
-        await query.message.reply_text(f"Створити новий запис для {name}:")
-        context.user_data['booking_client_id'] = client_id
-        # Далі — запускай свою логіку створення запису для клієнта вручну (можеш попросити ввести дату, процедуру і т.д.)
-        return
+
+
 
     # --- І далі інші клієнтські функції... ---
     # --- ДЛЯ КЛІЄНТА ---
@@ -933,37 +960,51 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'proc_lam_brows': 'Ламінування брів (WOW-ефект)',
             'proc_lam_lashes': 'Ламінування вій (виразний погляд)'
         }
-        context.user_data['procedure'] = proc_map[query.data]
-        today = datetime.now().date()
-        dates = []
-        conn = sqlite3.connect('appointments.db')
-        c = conn.cursor()
-        c.execute("SELECT date FROM deleted_days")
-        deleted = {row[0] for row in c.fetchall()}
-        conn.close()
-        for i in range(7):
-            d = today + timedelta(days=i)
-            date_str = d.strftime("%d.%m")
-            if date_str not in deleted:
-                dates.append(date_str)
-        if not dates:
-            await query.edit_message_text("⛔ Немає доступних днів для запису. Зверніться до майстра!")
-            return
-        keyboard = [
-            [InlineKeyboardButton(f"📅 Обираю {date} 💋", callback_data=f'date_{date}')] for date in dates
-        ]
-        keyboard.append([InlineKeyboardButton("⬅️ Назад до процедур", callback_data='back_to_procedure')])
-        await query.edit_message_text(
-            "🌸 Який день зробить тебе ще прекраснішою? Обирай сердечко на календарі!\n"
-            "Передумала? Натискай ⬅️, і обери іншу процедуру! ✨💐",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
-        context.user_data['step'] = None
+    context.user_data['procedure'] = proc_map[query.data]
+    # Якщо step == 'book_procedure', це сценарій для адміна (записати ще раз)
+    if context.user_data.get('step') == 'book_procedure':
+        context.user_data['step'] = 'book_date'
+    else:
+        context.user_data['step'] = None  # Для клієнта залиш як є
+
+    today = datetime.now().date()
+    dates = []
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+    c.execute("SELECT date FROM deleted_days")
+    deleted = {row[0] for row in c.fetchall()}
+    conn.close()
+    for i in range(7):
+        d = today + timedelta(days=i)
+        date_str = d.strftime("%d.%m")
+        if date_str not in deleted:
+            dates.append(date_str)
+    if not dates:
+        await query.edit_message_text("⛔ Немає доступних днів для запису. Зверніться до майстра!")
         return
+    keyboard = [
+        [InlineKeyboardButton(f"📅 Обираю {date} 💋", callback_data=f'date_{date}')] for date in dates
+    ]
+    # Назад — для адміна до картки клієнта, для клієнта — до процедур
+    if context.user_data.get('booking_client_id'):
+        keyboard.append([InlineKeyboardButton("⬅️ Назад до картки клієнта", callback_data=f'client_{context.user_data["booking_client_id"]}')])
+    else:
+        keyboard.append([InlineKeyboardButton("⬅️ Назад до процедур", callback_data='back_to_procedure')])
+    await query.edit_message_text(
+        "🌸 Який день підходить для запису? Обирай дату!",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+    return
 
     if query.data.startswith('date_'):
         date = query.data.replace('date_', '')
         context.user_data['date'] = date
+        # --- Керуй step: ---
+        if context.user_data.get('step') == 'book_date':
+            context.user_data['step'] = 'book_time'
+        else:
+            context.user_data['step'] = None
+
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
         c.execute("SELECT times FROM schedule WHERE date = ?", (date,))
@@ -990,25 +1031,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton(f"🕒 {time} | Моє ідеальне віконце 💖", callback_data=f'time_{time}')]
             for time in free_times
         ]
-        keyboard.append([InlineKeyboardButton("⬅️ Назад до календаря", callback_data='back_to_date')])
+        # --- Назад для різних сценаріїв ---
+        if context.user_data.get('booking_client_id'):
+            keyboard.append([InlineKeyboardButton("⬅️ Назад до вибору дати", callback_data='back_to_procedure')])
+        else:
+            keyboard.append([InlineKeyboardButton("⬅️ Назад до календаря", callback_data='back_to_date')])
         await query.edit_message_text(
             "👑 Час бути зіркою! Обирай ідеальний час ❤️\n"
             "Хочеш змінити дату? Натискай ⬅️",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
-        context.user_data['step'] = None
-        return
-
-    if query.data.startswith("time_"):
-        time = query.data.replace("time_", "")
-        context.user_data['time'] = time
-        await query.edit_message_text(
-            "💕 Твоя краса вже майже у мене в руках!\n"
-            "Залиш, будь ласка, *Ім'я, прізвище та номер телефону*, щоб я могла тобі написати або зателефонувати ✨\n\n"
-            "_Наприклад: Марія Сафронюк, +380976853623_",
-            parse_mode='Markdown'
-        )
-        context.user_data['step'] = 'get_fullinfo'
         return
 
     if query.data == 'check_booking':
@@ -1030,6 +1062,35 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await query.message.reply_text(msg, reply_markup=reply_markup, parse_mode="Markdown")
         else:
             await query.message.reply_text("Записів не знайдено. Час оновити свій образ! 💄")
+        return
+
+    if query.data.startswith('time_') and context.user_data.get('booking_client_id'):
+        time = query.data.replace('time_', '')
+        procedure = context.user_data.get('procedure')
+        date = context.user_data.get('date')
+        client_id = context.user_data.get('booking_client_id')
+
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        status = "Запис підтверджено"
+
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("""
+                  INSERT INTO bookings (user_id, client_id, procedure, date, time, status, note)
+                  VALUES (?, ?, ?, ?, ?, ?, ?)
+                  """, (None, client_id, procedure, date, time, status, ""))
+        conn.commit()
+        conn.close()
+
+        keyboard = [
+            [InlineKeyboardButton("⬅️ До картки клієнта", callback_data=f"client_{client_id}")]
+        ]
+        await query.edit_message_text(
+            "✅ Клієнта записано на процедуру!\n\n"
+            "Можна повернутись до картки клієнта для наступних дій.",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        context.user_data.clear()
         return
 
     if query.data == 'back_to_date':
@@ -1150,7 +1211,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['step'] = None
         context.user_data['edit_note_client_id'] = None
         return
-    
+
     # --- Додавання примітки до запису (залишаємо як було) ---
     if user_step == 'add_note' and update.effective_user.id == ADMIN_ID:
         booking_id = context.user_data['note_booking_id']
