@@ -364,7 +364,6 @@ async def client_search_text_handler(update: Update, context: ContextTypes.DEFAU
     if not context.user_data.get('client_search'):
         return
     search = update.message.text.strip().lower()
-    # Для пошуку телефону: прибираємо всі нецифрові символи
     import re
     def clean_phone(phone):
         return re.sub(r"\D", "", phone)
@@ -381,12 +380,14 @@ async def client_search_text_handler(update: Update, context: ContextTypes.DEFAU
     if not rows:
         await update.message.reply_text("Клієнта не знайдено.")
     else:
-        buttons = [[InlineKeyboardButton(f"{name} ({phone})", ccallback_data=f"clientphone_{phone}"
-)]
-                   for client_id, name, phone in rows]
+        buttons = [
+            [InlineKeyboardButton(f"{name} ({phone})", callback_data=f"clientphone_{clean_phone(phone)}")]
+            for client_id, name, phone in rows
+        ]
         buttons.append([InlineKeyboardButton("⬅️ Назад", callback_data="clients_service")])
         await update.message.reply_text("Оберіть клієнта:", reply_markup=InlineKeyboardMarkup(buttons))
     context.user_data.pop('client_search', None)
+
 
 async def show_client_card(update, context, client_id):
     conn = sqlite3.connect('appointments.db')
