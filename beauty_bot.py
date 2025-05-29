@@ -916,11 +916,6 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = [
             [InlineKeyboardButton("✅ Підтвердити", callback_data=f"confirm_{booking_id}"),
              InlineKeyboardButton("❌ Відмінити", callback_data=f"cancel_{booking_id}")],
-            [InlineKeyboardButton("💎 Записатися ще", callback_data='book')],
-            [InlineKeyboardButton("📋 Мої записи", callback_data='check_booking')],
-            [InlineKeyboardButton("📸 Instagram", url=INSTAGRAM_LINK)],
-            [InlineKeyboardButton("📍 Геолокація", url=MASTER_GEO_LINK)],
-            [InlineKeyboardButton(f"👩‍🎨 Майстер: {MASTER_NAME}", callback_data='master_phone')],
         ]
         await update.message.reply_text(
             f"🎉 Ти записана на *{procedure}* {date} о {time}! Я вже чекаю зустрічі з тобою, ти надихаєш! 💖\n\n"
