@@ -893,10 +893,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Назад", callback_data="manage_schedule")]])
         )
         return
-    if query.data.startswith('client_'):
-        client_id = int(query.data.replace("client_", ""))
-        await show_client_card(update, context, client_id)
-        return
 
     if query.data.startswith("client_note_"):
         client_id = int(query.data.replace("client_note_", ""))
@@ -961,7 +957,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
         return
-
+    if query.data.startswith('client_'):
+        client_id = int(query.data.replace("client_", ""))
+        await show_client_card(update, context, client_id)
+        return
     # --- І далі інші клієнтські функції... ---
     # --- ДЛЯ КЛІЄНТА ---
     if query.data == 'book' or query.data == 'back_to_procedure':
