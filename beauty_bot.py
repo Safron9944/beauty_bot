@@ -960,41 +960,42 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'proc_lam_brows': 'Ламінування брів (WOW-ефект)',
             'proc_lam_lashes': 'Ламінування вій (виразний погляд)'
         }
-    context.user_data['procedure'] = proc_map[query.data]
-    # Якщо step == 'book_procedure', це сценарій для адміна (записати ще раз)
-    if context.user_data.get('step') == 'book_procedure':
-        context.user_data['step'] = 'book_date'
-    else:
-        context.user_data['step'] = None  # Для клієнта залиш як є
+        context.user_data['procedure'] = proc_map[query.data]
+        # Якщо step == 'book_procedure', це сценарій для адміна (записати ще раз)
+        if context.user_data.get('step') == 'book_procedure':
+            context.user_data['step'] = 'book_date'
+        else:
+            context.user_data['step'] = None  # Для клієнта залиш як є
 
-    today = datetime.now().date()
-    dates = []
-    conn = sqlite3.connect('appointments.db')
-    c = conn.cursor()
-    c.execute("SELECT date FROM deleted_days")
-    deleted = {row[0] for row in c.fetchall()}
-    conn.close()
-    for i in range(7):
-        d = today + timedelta(days=i)
-        date_str = d.strftime("%d.%m")
-        if date_str not in deleted:
-            dates.append(date_str)
-    if not dates:
-        await query.edit_message_text("⛔ Немає доступних днів для запису. Зверніться до майстра!")
+        today = datetime.now().date()
+        dates = []
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("SELECT date FROM deleted_days")
+        deleted = {row[0] for row in c.fetchall()}
+        conn.close()
+        for i in range(7):
+            d = today + timedelta(days=i)
+            date_str = d.strftime("%d.%m")
+            if date_str not in deleted:
+                dates.append(date_str)
+        if not dates:
+            await query.edit_message_text("⛔ Немає доступних днів для запису. Зверніться до майстра!")
+            return
+        keyboard = [
+            [InlineKeyboardButton(f"📅 Обираю {date} 💋", callback_data=f'date_{date}')] for date in dates
+        ]
+        # Назад — для адміна до картки клієнта, для клієнта — до процедур
+        if context.user_data.get('booking_client_id'):
+            keyboard.append([InlineKeyboardButton("⬅️ Назад до картки клієнта",
+                                                  callback_data=f'client_{context.user_data['booking_client_id']}')])
+        else:
+            keyboard.append([InlineKeyboardButton("⬅️ Назад до процедур", callback_data='back_to_procedure')])
+        await query.edit_message_text(
+            "🌸 Який день підходить для запису? Обирай дату!",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
         return
-    keyboard = [
-        [InlineKeyboardButton(f"📅 Обираю {date} 💋", callback_data=f'date_{date}')] for date in dates
-    ]
-    # Назад — для адміна до картки клієнта, для клієнта — до процедур
-    if context.user_data.get('booking_client_id'):
-        keyboard.append([InlineKeyboardButton("⬅️ Назад до картки клієнта", callback_data=f'client_{context.user_data["booking_client_id"]}')])
-    else:
-        keyboard.append([InlineKeyboardButton("⬅️ Назад до процедур", callback_data='back_to_procedure')])
-    await query.edit_message_text(
-        "🌸 Який день підходить для запису? Обирай дату!",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
-    return
 
     if query.data.startswith('date_'):
         date = query.data.replace('date_', '')
