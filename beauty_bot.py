@@ -919,9 +919,6 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         await update.message.reply_text(
             f"🎉 Ти записана на *{procedure}* {date} о {time}! Я вже чекаю зустрічі з тобою, ти надихаєш! 💖\n\n"
-            f"👩‍🎨 Майстер: {MASTER_NAME}\n"
-            f"☎️ Телефон: {MASTER_PHONE}\n"
-            f"📍 Адреса: {MASTER_GEO}\n\n"
             "Якщо хочеш — підтверди чи відміні запис, або запишися ще раз 👑",
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(keyboard)
