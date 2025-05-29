@@ -894,56 +894,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     if query.data.startswith('client_'):
-        try:
-            client_id = int(query.data.replace("client_", ""))
-            print("==> [client_] client_id:", client_id)
-            with sqlite3.connect('appointments.db') as conn:
-                c = conn.cursor()
-                c.execute("SELECT name, phone, note FROM clients WHERE id=?", (client_id,))
-                row = c.fetchone()
-            if not row:
-                await query.message.reply_text("❌ Клієнта не знайдено.")
-                return
-            name, phone, note = row
-
-            # Історія записів клієнта
-            with sqlite3.connect('appointments.db') as conn:
-                c = conn.cursor()
-                c.execute(
-                    "SELECT date, time, procedure FROM bookings WHERE client_id=? ORDER BY date DESC, time DESC LIMIT 5",
-                    (client_id,))
-                history_rows = c.fetchall()
-
-            history_text = ""
-            if history_rows:
-                history_text = "\n\n<b>Останні записи:</b>\n"
-                for h in history_rows:
-                    history_text += f"{h[0]} {h[1]} — {h[2]}\n"
-            else:
-                history_text = "\n\n<i>Поки що немає записів.</i>"
-
-            text = (
-                f"<b>Картка клієнта</b>\n"
-                f"👤 <b>Ім'я:</b> {name}\n"
-                f"📞 <b>Телефон:</b> {phone}\n"
-                f"📝 <b>Нотатка:</b> {note or '—'}"
-                f"{history_text}"
-            )
-            keyboard = [
-                [InlineKeyboardButton("🔄 Записати ще раз", callback_data=f"client_book_{client_id}")],
-                [InlineKeyboardButton("📜 Історія", callback_data=f"client_history_{client_id}")],
-                [InlineKeyboardButton("📝 Додати нотатку", callback_data=f"client_note_{client_id}")],
-                [InlineKeyboardButton("⬅️ Назад до списку", callback_data="clients_service")]
-            ]
-            await query.message.reply_text(
-                text,
-                reply_markup=InlineKeyboardMarkup(keyboard),
-                parse_mode='HTML'
-            )
-        except Exception as e:
-            import traceback
-            print("==> [client_] ERROR:", e)
-            print(traceback.format_exc())
+        client_id = int(query.data.replace("client_", ""))
+        await show_client_card(update, context, client_id)
         return
 
     if query.data.startswith("client_note_"):
