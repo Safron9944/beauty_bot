@@ -859,6 +859,53 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    if query.data.startswith("client_note_"):
+        client_id = int(query.data.replace("client_note_", ""))
+        # Вибираємо ім’я клієнта
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("SELECT name FROM clients WHERE id=?", (client_id,))
+        row = c.fetchone()
+        conn.close()
+        name = row[0] if row else "Невідомий"
+        await query.message.reply_text(f"Введіть нову примітку для {name}:")
+        context.user_data['edit_note_client_id'] = client_id
+        context.user_data['step'] = 'edit_note'
+        return
+
+    if query.data.startswith("client_history_"):
+        client_id = int(query.data.replace("client_history_", ""))
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("SELECT name FROM clients WHERE id=?", (client_id,))
+        row = c.fetchone()
+        name = row[0] if row else "Невідомий"
+        c.execute("SELECT procedure, date, time, status FROM bookings WHERE client_id=? ORDER BY date DESC, time DESC",
+                  (client_id,))
+        visits = c.fetchall()
+        conn.close()
+        if visits:
+            msg = f"Історія записів для {name}:\n"
+            for proc, date, time, status in visits:
+                msg += f"• {date} о {time}: {proc} ({status})\n"
+        else:
+            msg = f"У {name} ще не було записів."
+        await query.message.reply_text(msg)
+        return
+
+    if query.data.startswith("client_book_"):
+        client_id = int(query.data.replace("client_book_", ""))
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("SELECT name FROM clients WHERE id=?", (client_id,))
+        row = c.fetchone()
+        conn.close()
+        name = row[0] if row else "Невідомий"
+        await query.message.reply_text(f"Створити новий запис для {name}:")
+        context.user_data['booking_client_id'] = client_id
+        # Далі — запускай свою логіку створення запису для клієнта вручну (можеш попросити ввести дату, процедуру і т.д.)
+        return
+
     # --- І далі інші клієнтські функції... ---
     # --- ДЛЯ КЛІЄНТА ---
     if query.data == 'book' or query.data == 'back_to_procedure':
@@ -1088,6 +1135,22 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await client_search_text_handler(update, context)
         return
 
+    if context.user_data.get('step') == 'edit_note':
+        note = update.message.text.strip()
+        client_id = context.user_data.get('edit_note_client_id')
+        if client_id:
+            conn = sqlite3.connect('appointments.db')
+            c = conn.cursor()
+            c.execute("UPDATE clients SET note=? WHERE id=?", (note, client_id))
+            conn.commit()
+            conn.close()
+            await update.message.reply_text("Примітку оновлено!")
+        else:
+            await update.message.reply_text("Клієнта не знайдено.")
+        context.user_data['step'] = None
+        context.user_data['edit_note_client_id'] = None
+        return
+    
     # --- Додавання примітки до запису (залишаємо як було) ---
     if user_step == 'add_note' and update.effective_user.id == ADMIN_ID:
         booking_id = context.user_data['note_booking_id']
