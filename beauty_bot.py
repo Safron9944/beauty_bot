@@ -1166,7 +1166,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn.close()
         if row:
             name, procedure, date, time = row
-            # Відправляємо повідомлення клієнту, що запис скасовано і додаємо кнопку для повернення
+            # Відправляємо повідомлення клієнту
             await query.message.reply_text(
                 f"❌ Твій запис на *{procedure}* {date} о {time} успішно скасовано. Якщо хочеш, ти можеш записатися знову або повернутися до головного меню 👑",
                 parse_mode="Markdown",
@@ -1175,12 +1175,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     [InlineKeyboardButton("⬅️ Повернутися до головного меню", callback_data="back_to_menu")]
                 ])
             )
-    # Надсилаємо повідомлення адміну про скасування запису
-    await context.bot.send_message(
-        chat_id=ADMIN_ID,
-        text=f"❗️Клієнт {name} скасував запис: {procedure} {date} о {time}"
-    )
-    return
+            # ТІЛЬКИ якщо row знайдено — надсилаємо адміну!
+            await context.bot.send_message(
+                chat_id=ADMIN_ID,
+                text=f"❗️Клієнт {name} скасував запис: {procedure} {date} о {time}"
+            )
+        return
 
 # --- ВВЕДЕННЯ ТЕКСТУ ---
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
