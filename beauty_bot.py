@@ -507,7 +507,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # --- Додавання примітки до запису (старий сценарій) ---
-    if user_step == 'add_note' and update.effective_user.id == ADMIN_IDS:
+    if user_step == 'add_note' and update.effective_user.id in ADMIN_IDS:
         booking_id = context.user_data['note_booking_id']
         note_text = update.message.text
         conn = sqlite3.connect('appointments.db')
@@ -528,7 +528,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id if hasattr(update, "effective_user") else update.callback_query.from_user.id
     query = update.callback_query
-    if user_id != ADMIN_IDS:
+    if user_id not in ADMIN_IDS:
         await query.answer("Доступно тільки адміну", show_alert=True)
         return
 
@@ -564,7 +564,7 @@ async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     )
 
 async def calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_IDS:
+    if update.effective_user.id not in ADMIN_IDS:
         await update.message.reply_text("⛔ Доступно тільки адміну.")
         return
     today = datetime.now().date()
@@ -594,7 +594,7 @@ async def calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def week_calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_IDS:
+    if update.effective_user.id not in ADMIN_IDS:
         await update.message.reply_text("⛔ Доступно тільки адміну.")
         return
     today = datetime.now().date()
@@ -1314,7 +1314,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
     # --- ЗМІНА ЦІНИ В ПРАЙСІ ---
-    if user_step == 'update_price' and update.effective_user.id == ADMIN_IDS:
+    if user_step == 'update_price' and update.effective_user.id in ADMIN_IDS:
         service_id = context.user_data.get('edit_price_id')
         try:
             new_price = int(text.strip())
@@ -1333,7 +1333,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # --- Додавання/редагування часу для дня (адмін) ---
-    if user_step == 'edit_times' and update.effective_user.id == ADMIN_IDS:
+    if user_step == 'edit_times' and update.effective_user.id in ADMIN_IDS:
         day = context.user_data.get('edit_day')
         new_times = text.strip()
         conn = sqlite3.connect('appointments.db')
