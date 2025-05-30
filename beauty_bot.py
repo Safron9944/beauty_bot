@@ -3,7 +3,7 @@ import os
 
 load_dotenv()
 TOKEN = os.getenv('TELEGRAM_TOKEN')
-ADMIN_ID = int(os.environ["ADMIN_ID"])
+ADMIN_IDS = list(map(int, os.getenv("ADMIN_IDS", "").split(",")))
 
 import sqlite3
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -173,7 +173,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("📋 Прайс", callback_data='show_price')],
         [InlineKeyboardButton(f"👩‍🎨 Ваш майстер: {MASTER_NAME}", callback_data='master_phone')]
     ]
-    if user_id == ADMIN_ID:
+    if update.effective_user.id in ADMIN_IDS:
         keyboard.append([InlineKeyboardButton("⚙️ Адмін-сервіс", callback_data='admin_service')])
     welcome = (
         "✨ *Beauty-бот* зустрічає тебе з посмішкою! Тут кожна красуня знаходить свій стиль і настрій 💖\n\n"
@@ -507,7 +507,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # --- Додавання примітки до запису (старий сценарій) ---
-    if user_step == 'add_note' and update.effective_user.id == ADMIN_ID:
+    if user_step == 'add_note' and update.effective_user.id == ADMIN_IDS:
         booking_id = context.user_data['note_booking_id']
         note_text = update.message.text
         conn = sqlite3.connect('appointments.db')
@@ -528,7 +528,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id if hasattr(update, "effective_user") else update.callback_query.from_user.id
     query = update.callback_query
-    if user_id != ADMIN_ID:
+    if user_id != ADMIN_IDS:
         await query.answer("Доступно тільки адміну", show_alert=True)
         return
 
@@ -564,7 +564,7 @@ async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     )
 
 async def calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID:
+    if update.effective_user.id != ADMIN_IDS:
         await update.message.reply_text("⛔ Доступно тільки адміну.")
         return
     today = datetime.now().date()
@@ -594,7 +594,7 @@ async def calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def week_calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID:
+    if update.effective_user.id != ADMIN_IDS:
         await update.message.reply_text("⛔ Доступно тільки адміну.")
         return
     today = datetime.now().date()
@@ -702,7 +702,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     buttons.append(InlineKeyboardButton("✅ Підтвердити", callback_data=f"confirm_{booking_id}"))
                     buttons.append(InlineKeyboardButton("❌ Відмінити", callback_data=f"cancel_{booking_id}"))
                 # Додаємо кнопку примітки тільки для адміна
-                if user_id == ADMIN_ID:
+                if user_id == ADMIN_IDS:
                     buttons.append(InlineKeyboardButton("📝 Примітка", callback_data=f"note_{booking_id}"))
                 reply_markup = InlineKeyboardMarkup([buttons]) if buttons else None
                 await query.message.reply_text(msg, reply_markup=reply_markup, parse_mode="Markdown")
@@ -847,7 +847,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await week_calendar_handler(update, context)
         return
 
-    if query.data.startswith("delday_") and user_id == ADMIN_ID:
+    if query.data.startswith("delday_") and user_id == ADMIN_IDS:
         date = query.data.replace('delday_', '')
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
@@ -1218,7 +1218,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             # ТІЛЬКИ якщо row знайдено — надсилаємо адміну!
             await context.bot.send_message(
-                chat_id=ADMIN_ID,
+                chat_id=ADMIN_IDS,
                 text=f"❗️Клієнт {name} скасував запис: {procedure} {date} о {time}"
             )
         return
@@ -1255,7 +1255,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # --- Додавання примітки до запису (залишаємо як було) ---
-    if user_step == 'add_note' and update.effective_user.id == ADMIN_ID:
+    if user_step == 'add_note' and update.effective_user.id == ADMIN_IDS:
         booking_id = context.user_data['note_booking_id']
         note_text = update.message.text
         conn = sqlite3.connect('appointments.db')
@@ -1274,7 +1274,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
     # --- ЗМІНА ЦІНИ В ПРАЙСІ ---
-    if user_step == 'update_price' and update.effective_user.id == ADMIN_ID:
+    if user_step == 'update_price' and update.effective_user.id == ADMIN_IDS:
         service_id = context.user_data.get('edit_price_id')
         try:
             new_price = int(text.strip())
@@ -1293,7 +1293,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # --- Додавання/редагування часу для дня (адмін) ---
-    if user_step == 'edit_times' and update.effective_user.id == ADMIN_ID:
+    if user_step == 'edit_times' and update.effective_user.id == ADMIN_IDS:
         day = context.user_data.get('edit_day')
         new_times = text.strip()
         conn = sqlite3.connect('appointments.db')
@@ -1345,7 +1345,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         # Сповіщаємо адміністратора:
         await context.bot.send_message(
-            chat_id=ADMIN_ID,
+            chat_id=ADMIN_IDS,
             text=f"""📥 Новий запис:
     ПІБ/Телефон: {name} / {phone}
     Процедура: {procedure}
