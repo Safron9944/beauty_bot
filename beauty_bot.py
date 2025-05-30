@@ -9,7 +9,7 @@ import sqlite3
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes,
-    MessageHandler, filters
+    MessageHandler, filters, ConversationHandler
 )
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime, timedelta
@@ -35,55 +35,122 @@ def init_db():
 
     # --- Таблиця клієнтів ---
     c.execute("""
-        CREATE TABLE IF NOT EXISTS clients (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT,
-            phone TEXT UNIQUE,
-            user_id INTEGER,
-            note TEXT,
-            created_at TEXT,
-            updated_at TEXT
-        )
-    """)
+              CREATE TABLE IF NOT EXISTS clients
+              (
+                  id
+                  INTEGER
+                  PRIMARY
+                  KEY
+                  AUTOINCREMENT,
+                  name
+                  TEXT,
+                  phone
+                  TEXT
+                  UNIQUE,
+                  user_id
+                  INTEGER,
+                  note
+                  TEXT,
+                  created_at
+                  TEXT,
+                  updated_at
+                  TEXT
+              )
+              """)
 
     # --- Таблиця розкладу ---
     c.execute("""
-        CREATE TABLE IF NOT EXISTS schedule (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            date TEXT,
-            times TEXT
-        )
-    """)
+              CREATE TABLE IF NOT EXISTS schedule
+              (
+                  id
+                  INTEGER
+                  PRIMARY
+                  KEY
+                  AUTOINCREMENT,
+                  date
+                  TEXT,
+                  times
+                  TEXT
+              )
+              """)
 
     # --- Таблиця вихідних днів ---
     c.execute("""
-        CREATE TABLE IF NOT EXISTS deleted_days (
-            date TEXT PRIMARY KEY
-        )
-    """)
+              CREATE TABLE IF NOT EXISTS deleted_days
+              (
+                  date
+                  TEXT
+                  PRIMARY
+                  KEY
+              )
+              """)
 
     # --- Таблиця прайсу ---
     c.execute("""
-        CREATE TABLE IF NOT EXISTS price_list (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT UNIQUE,
-            price INTEGER
-        )
-    """)
+              CREATE TABLE IF NOT EXISTS price_list
+              (
+                  id
+                  INTEGER
+                  PRIMARY
+                  KEY
+                  AUTOINCREMENT,
+                  name
+                  TEXT
+                  UNIQUE,
+                  price
+                  INTEGER
+              )
+              """)
 
     # --- Таблиця записів (bookings) ---
     c.execute("""
-        CREATE TABLE IF NOT EXISTS bookings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            client_id INTEGER,
-            procedure TEXT,
-            date TEXT,
-            time TEXT,
-            status TEXT,
-            note TEXT
-        )
-    """)
+              CREATE TABLE IF NOT EXISTS bookings
+              (
+                  id
+                  INTEGER
+                  PRIMARY
+                  KEY
+                  AUTOINCREMENT,
+                  user_id
+                  INTEGER,
+                  client_id
+                  INTEGER,
+                  procedure
+                  TEXT,
+                  date
+                  TEXT,
+                  time
+                  TEXT,
+                  status
+                  TEXT,
+                  note
+                  TEXT
+              )
+              """)
+
+    # --- Таблиця особливих умов клієнта ---
+    c.execute("""
+              CREATE TABLE IF NOT EXISTS client_conditions
+              (
+                  id
+                  INTEGER
+                  PRIMARY
+                  KEY
+                  AUTOINCREMENT,
+                  client_id
+                  INTEGER
+                  NOT
+                  NULL,
+                  condition_text
+                  TEXT
+                  NOT
+                  NULL,
+                  created_at
+                  TIMESTAMP
+                  DEFAULT
+                  CURRENT_TIMESTAMP
+              )
+              """)
 
     # --- Додаємо дефолтні послуги, якщо таблиця price_list порожня ---
     c.execute("SELECT COUNT(*) FROM price_list")
@@ -169,8 +236,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     keyboard = [
         [InlineKeyboardButton("💎 Записатися на процедуру", callback_data='book')],
-        [InlineKeyboardButton("📋 Мої записи", callback_data='check_booking')],
-        [InlineKeyboardButton("📋 Прайс", callback_data='show_price')],
+        [InlineKeyboardButton("🗓️ Мої записи", callback_data='check_booking')],
+        [InlineKeyboardButton("💰 Прайс", callback_data='show_price')],
         [InlineKeyboardButton(f"👩‍🎨 Ваш майстер: {MASTER_NAME}", callback_data='master_phone')]
     ]
     if update.effective_user.id in ADMIN_IDS:
@@ -289,6 +356,134 @@ async def edit_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Вибрані години: {selected}\nНатискай на час, щоб додати або прибрати його зі списку, або введи свій.",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
+# --- ДОДАТИ УМОВУ ---
+async def add_condition_start(update, context):
+    query = update.callback_query
+    await query.answer()
+
+    client_id = int(query.data.split("_")[-1])
+    context.user_data["condition_client_id"] = client_id
+
+    await query.edit_message_text("➕ Введіть текст нової умови:")
+    return ADDING_CONDITION
+
+async def save_condition(update, context):
+    import sqlite3
+    text = update.message.text.strip()
+    client_id = context.user_data.get("condition_client_id")
+
+    if not text:
+        await update.message.reply_text("⚠️ Текст не може бути порожнім.")
+        return ADDING_CONDITION
+
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+    c.execute("INSERT INTO client_conditions (client_id, condition_text) VALUES (?, ?)", (client_id, text))
+    conn.commit()
+    conn.close()
+
+    await update.message.reply_text("✅ Умову додано.")
+    await show_client_card(update, context, client_id)
+    return ConversationHandler.END
+
+# --- РЕДАГУВАННЯ УМОВИ ---
+async def edit_condition_start(update, context):
+    query = update.callback_query
+    await query.answer()
+
+    condition_id = int(query.data.split("_")[-1])
+    context.user_data["edit_condition_id"] = condition_id
+
+    await query.edit_message_text("✏️ Введіть новий текст для цієї умови:")
+    return EDITING_CONDITION
+
+async def save_edited_condition(update, context):
+    import sqlite3
+    condition_id = context.user_data.get("edit_condition_id")
+    new_text = update.message.text.strip()
+
+    if not new_text:
+        await update.message.reply_text("⚠️ Текст не може бути порожнім. Спробуйте ще раз.")
+        return EDITING_CONDITION
+
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+    c.execute("UPDATE client_conditions SET condition_text=? WHERE id=?", (new_text, condition_id))
+    conn.commit()
+
+    c.execute("SELECT client_id FROM client_conditions WHERE id=?", (condition_id,))
+    row = c.fetchone()
+    conn.close()
+
+    if row:
+        client_id = row[0]
+        await update.message.reply_text("✅ Умову оновлено!")
+        await show_client_card(update, context, client_id)
+    else:
+        await update.message.reply_text("⚠️ Помилка: клієнта не знайдено.")
+    return ConversationHandler.END
+
+# --- ПІДТВЕРДЖЕННЯ ТА ВИДАЛЕННЯ ---
+async def delete_condition(update, context):
+    query = update.callback_query
+    await query.answer()
+
+    cond_id = int(query.data.split("_")[-1])
+    context.user_data["pending_delete_condition_id"] = cond_id
+
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+    c.execute("SELECT condition_text FROM client_conditions WHERE id=?", (cond_id,))
+    row = c.fetchone()
+    conn.close()
+
+    if not row:
+        await query.edit_message_text("⚠️ Умову не знайдено.")
+        return
+
+    text = row[0]
+    keyboard = [
+        [
+            InlineKeyboardButton("✅ Так, видалити", callback_data="confirm_delete"),
+            InlineKeyboardButton("❌ Скасувати", callback_data="cancel_delete")
+        ]
+    ]
+
+    await query.edit_message_text(
+        f"❗ Ви справді хочете видалити умову:\n\n“{text}”",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+async def confirm_delete(update, context):
+    query = update.callback_query
+    await query.answer()
+
+    cond_id = context.user_data.get("pending_delete_condition_id")
+    if not cond_id:
+        await query.edit_message_text("⚠️ Немає умови для видалення.")
+        return
+
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+    c.execute("SELECT client_id FROM client_conditions WHERE id=?", (cond_id,))
+    row = c.fetchone()
+
+    if not row:
+        await query.edit_message_text("⚠️ Умову вже видалено.")
+        return
+
+    client_id = row[0]
+    c.execute("DELETE FROM client_conditions WHERE id=?", (cond_id,))
+    conn.commit()
+    conn.close()
+
+    await query.edit_message_text("🗑️ Умову видалено.")
+    await show_client_card(update, context, client_id)
+
+async def cancel_delete(update, context):
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text("❎ Видалення скасовано.")
 
 async def clients_service_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Очищуємо всі стани для уникнення конфліктів
@@ -414,55 +609,60 @@ async def client_search_text_handler(update: Update, context: ContextTypes.DEFAU
 
 
 async def show_client_card(update, context, client_id):
+    import sqlite3
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-    c.execute("SELECT name, phone, note FROM clients WHERE id=?", (client_id,))
+
+    # Отримуємо основну інформацію про клієнта
+    c.execute("SELECT name, phone, note, status FROM clients WHERE id=?", (client_id,))
     result = c.fetchone()
     if not result:
-        await context.bot.send_message(chat_id=update.effective_user.id, text="Клієнта не знайдено.")
+        await update.message.reply_text("Клієнта не знайдено.")
         conn.close()
         return
-    name, phone, note = result
-    c.execute("""
-        SELECT COUNT(*), COALESCE(SUM(price_list.price),0), MAX(bookings.date)
-        FROM bookings 
-        LEFT JOIN price_list ON bookings.procedure = price_list.name
-        WHERE client_id = ?
-    """, (client_id,))
-    total_count, total_sum, last_date = c.fetchone()
-    c.execute("""
-        SELECT procedure, COUNT(*) FROM bookings 
-        WHERE client_id=?
-        GROUP BY procedure ORDER BY COUNT(*) DESC LIMIT 2
-    """, (client_id,))
-    procs = c.fetchall()
-    conn.close()
-    procs_txt = "\n".join([f"— {p} ({cnt})" for p, cnt in procs]) if procs else "—"
+
+    name, phone, note, status = result
+
+    # Дата останнього візиту
+    c.execute("SELECT MAX(date) FROM bookings WHERE client_id=?", (client_id,))
+    last_visit = c.fetchone()[0] or "—"
+
+    # Особливі умови (нове поле — наприклад, ingredients або sensitivity)
+    c.execute("SELECT condition_text FROM client_conditions WHERE client_id=?", (client_id,))
+    conditions = [row[0] for row in c.fetchall()]
+    special_conditions = '\n'.join(f"— {c}" for c in conditions) if conditions else "—"
+
+    # Текст картки
     txt = (
-        f"👤 *{name}*\n"
-        f"📱 {phone}\n\n"
-        f"Всього записів: {total_count}\n"
-        f"Витрачено: {total_sum} грн\n"
-        f"Останній візит: {last_date if last_date else '—'}\n"
-        f"ТОП-процедури:\n{procs_txt}\n\n"
-        f"📝 Примітка: “{note if note else '-'}”"
+        f"\U0001F5C2\ufe0f КЛАСИФІКАЦІЯ: CLIENT FILE #{client_id}\n\n"
+        f"\U0001F478 ІМ’Я: {name}\n"
+        f"\U0001F4F1 МОБ: {phone}\n"
+        f"\U0001F4C5 АКТИВНІСТЬ: останній візит — {last_visit}\n"
+        f"\U0001F4CC СТАТУС: {status if status else '—'}\n\n"
+        f"\u26A0\ufe0F ОСОБЛИВІ УМОВИ:\n{special_conditions}\n\n"
+        f"\U0001F4DD СПОСТЕРЕЖЕННЯ:\n{note if note else '—'}"
     )
+
+    # Кнопки керування
     keyboard = [
-        [InlineKeyboardButton("📝 Редагувати примітку", callback_data=f"client_note_{client_id}")],
-        [InlineKeyboardButton("🔄 Записати ще раз", callback_data=f"client_book_{client_id}"),
-         InlineKeyboardButton("📋 Вся історія записів", callback_data=f"client_history_{client_id}")],
+        [InlineKeyboardButton("➕ Додати умову", callback_data=f"add_condition_{client_id}"),
+         InlineKeyboardButton("✏️ Редагувати", callback_data=f"edit_client_{client_id}")],
         [InlineKeyboardButton("⬅️ Назад", callback_data="clients_service")]
     ]
-    # Завжди використовуй send_message, якщо немає update.message (наприклад після callback'у)
-    if hasattr(update, "message") and update.message:
-        await update.message.reply_text(txt, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
-    elif hasattr(update, "callback_query") and update.callback_query:
-        await context.bot.send_message(chat_id=update.effective_user.id, text=txt, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
-    else:
-        await context.bot.send_message(chat_id=update.effective_user.id, text=txt, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
+
+    await context.bot.send_message(
+        chat_id=update.effective_user.id,
+        text=txt,
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
 async def show_client_card_by_phone(update, context, phone):
     import re
+    import sqlite3
+
     # Нормалізуємо номер (залишаємо тільки цифри)
     clean = lambda x: re.sub(r"\D", "", x)
     phone_clean = clean(phone)
@@ -490,7 +690,6 @@ async def show_client_card_by_phone(update, context, phone):
                 text="Клієнта з цим номером не знайдено."
             )
 
-# --- TEXT HANDLER ---
 
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_step = context.user_data.get('step')
@@ -1305,7 +1504,17 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             c.execute("SELECT name FROM price_list WHERE id=?", (service_id,))
             name = c.fetchone()[0]
             conn.close()
-            await update.message.reply_text(f"Ціну для '{name}' оновлено на {new_price} грн!")
+
+            # ⬅️ Додаємо кнопку назад
+            keyboard = [
+                [InlineKeyboardButton("⬅️ Назад до послуг", callback_data="edit_price")]
+            ]
+            await update.message.reply_text(
+                f"✅ Ціну для *{name}* оновлено на *{new_price} грн*!",
+                parse_mode="Markdown",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+
         except Exception as e:
             await update.message.reply_text("❗️Помилка. Введіть цілу суму (наприклад, 350)")
         context.user_data['step'] = None
@@ -1500,10 +1709,29 @@ async def set_day_off(update: Update, context: ContextTypes.DEFAULT_TYPE, date):
 def main():
     init_db()
     app = ApplicationBuilder().token(TOKEN).build()
+
+    # --- Основні хендлери ---
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
-    app.run_polling()
 
+    # --- Хендлери умов ---
+    app.add_handler(CallbackQueryHandler(delete_condition, pattern=r'^delcond_\d+$'))
+    app.add_handler(CallbackQueryHandler(confirm_delete, pattern='^confirm_delete$'))
+    app.add_handler(CallbackQueryHandler(cancel_delete, pattern='^cancel_delete$'))
+
+    app.add_handler(ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(add_condition_start, pattern=r'^add_condition_\d+$'),
+            CallbackQueryHandler(edit_condition_start, pattern=r'^editcond_\d+$')
+        ],
+        states={
+            ADDING_CONDITION: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_condition)],
+            EDITING_CONDITION: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_edited_condition)],
+        },
+        fallbacks=[],
+    ))
+
+    app.run_polling()
 if __name__ == "__main__":
     main()
