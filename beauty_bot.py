@@ -19,6 +19,8 @@ try:
 except ImportError:
     def add_to_google_sheet(*args, **kwargs):
         pass
+# --- СТАНИ ДЛЯ ConversationHandler ---
+ADDING_CONDITION, EDITING_CONDITION, EDITING_NOTE = range(3)
 
 INSTAGRAM_LINK = "https://www.instagram.com/safroniuk_brows_lashes?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw=="
 MASTER_PHONE = "+380976853623"
