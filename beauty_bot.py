@@ -1477,6 +1477,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # --- СТАРТ РЕДАГУВАННЯ НОТАТКИ ---
+    # --- СТАРТ РЕДАГУВАННЯ НОТАТКИ ---
     async def edit_note_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         await query.answer()
@@ -1486,6 +1487,22 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['edit_note_client_id'] = client_id
 
         await query.edit_message_text("📝 Введіть нову нотатку для клієнта:")
+
+    # --- ЗБЕРЕЖЕННЯ ОНОВЛЕНОЇ НОТАТКИ ---
+    async def save_edited_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        import sqlite3
+        note = update.message.text.strip()
+        client_id = context.user_data.get("edit_note_client_id")
+
+        conn = sqlite3.connect("appointments.db")
+        c = conn.cursor()
+        c.execute("UPDATE clients SET note=? WHERE id=?", (note, client_id))
+        conn.commit()
+        conn.close()
+
+        await update.message.reply_text("✅ Нотатку оновлено.")
+        await show_client_card(update, context, client_id)
+        return ConversationHandler.END
 
     # --- Додавання примітки до запису (залишаємо як було) ---
     if user_step == 'add_note' and update.effective_user.id == ADMIN_IDS:
