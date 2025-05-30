@@ -1105,29 +1105,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # --- ВИБІР ЧАСУ ДЛЯ ЗАПИСУ (АДМІН або ЗВИЧАЙНИЙ КЛІЄНТ) ---
-
-    from dotenv import load_dotenv
-    import os
-
-    load_dotenv()
-    TOKEN = os.getenv('TELEGRAM_TOKEN')
-    ADMIN_IDS = list(map(int, os.getenv("ADMIN_IDS", "").split(",")))
-
-    import sqlite3
-    from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-    from telegram.ext import (
-        ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes,
-        MessageHandler, filters
-    )
-    from apscheduler.schedulers.background import BackgroundScheduler
-    from datetime import datetime, timedelta
-    import collections
-    try:
-        from google_sheets import add_to_google_sheet
-    except ImportError:
-        def add_to_google_sheet(*args, **kwargs):
-            pass
-
     if query.data.startswith('time_'):
         time = query.data.replace('time_', '')
         procedure = context.user_data.get('procedure')
