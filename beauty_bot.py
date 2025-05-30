@@ -1103,37 +1103,77 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # --- ВИБІР ЧАСУ ДЛЯ ЗАПИСУ (АДМІН або ЗВИЧАЙНИЙ КЛІЄНТ) ---
 
-    if query.data.startswith('time_') and context.user_data.get('booking_client_id'):
-        print("==> [time_] step before:", context.user_data.get('step'))
-        print("==> [time_] booking_client_id:", context.user_data.get('booking_client_id'))
-        print("==> [time_] procedure:", context.user_data.get('procedure'))
-        print("==> [time_] date:", context.user_data.get('date'))
-        print("==> [time_] time:", query.data.replace('time_', ''))
+    from dotenv import load_dotenv
+    import os
+
+    load_dotenv()
+    TOKEN = os.getenv('TELEGRAM_TOKEN')
+    ADMIN_IDS = list(map(int, os.getenv("ADMIN_IDS", "").split(",")))
+
+    import sqlite3
+    from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+    from telegram.ext import (
+        ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes,
+        MessageHandler, filters
+    )
+    from apscheduler.schedulers.background import BackgroundScheduler
+    from datetime import datetime, timedelta
+    import collections
+    try:
+        from google_sheets import add_to_google_sheet
+    except ImportError:
+        def add_to_google_sheet(*args, **kwargs):
+            pass
+
+    if query.data.startswith('time_'):
         time = query.data.replace('time_', '')
         procedure = context.user_data.get('procedure')
         date = context.user_data.get('date')
-        client_id = context.user_data.get('booking_client_id')
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        status = "Запис підтверджено"
-        conn = sqlite3.connect('appointments.db')
-        c = conn.cursor()
-        c.execute("""
-                  INSERT INTO bookings (user_id, client_id, procedure, date, time, status, note)
-                  VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                  (None, client_id, procedure, date, time, status, ""))
-        conn.commit()
-        conn.close()
-        print("==> [time_] booking DONE!")
-        keyboard = [
-            [InlineKeyboardButton("⬅️ До картки клієнта", callback_data=f"client_{client_id}")]
-        ]
-        await query.edit_message_text(
-            "✅ Клієнта записано на процедуру!\n\n"
-            "Можна повернутись до картки клієнта для наступних дій.",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
-        context.user_data.clear()
-        return
+
+        if context.user_data.get('booking_client_id'):
+            # Адмін: записуємо клієнта напряму
+            print("==> [time_] step before:", context.user_data.get('step'))
+            print("==> [time_] booking_client_id:", context.user_data.get('booking_client_id'))
+            print("==> [time_] procedure:", procedure)
+            print("==> [time_] date:", date)
+            print("==> [time_] time:", time)
+            client_id = context.user_data.get('booking_client_id')
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            status = "Запис підтверджено"
+            conn = sqlite3.connect('appointments.db')
+            c = conn.cursor()
+            c.execute("""
+                      INSERT INTO bookings (user_id, client_id, procedure, date, time, status, note)
+                      VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                      (None, client_id, procedure, date, time, status, ""))
+            conn.commit()
+            conn.close()
+            print("==> [time_] booking DONE!")
+            keyboard = [
+                [InlineKeyboardButton("⬅️ До картки клієнта", callback_data=f"client_{client_id}")]
+            ]
+            await query.edit_message_text(
+                "✅ Клієнта записано на процедуру!\n\n"
+                "Можна повернутись до картки клієнта для наступних дій.",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+            context.user_data.clear()
+            return
+        else:
+            # Користувач: просимо ввести ПІБ і телефон
+            if not procedure or not date:
+                await query.edit_message_text("⚠️ Сталася помилка. Будь ласка, почніть запис спочатку.")
+                context.user_data.clear()
+                return
+
+            context.user_data['time'] = time
+            context.user_data['step'] = 'get_fullinfo'
+            await query.edit_message_text(
+                f"📋 Введіть *ПІБ та номер телефону* через кому, наприклад:\n\n"
+                f"`Ольга Чарівна, +380961234567`",
+                parse_mode="Markdown"
+            )
+            return
 
     if query.data == 'back_to_date':
         procedure = context.user_data.get('procedure')
