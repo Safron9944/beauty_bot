@@ -648,7 +648,8 @@ async def show_client_card(update, context, client_id):
     # Кнопки керування
     keyboard = [
         [InlineKeyboardButton("➕ Додати умову", callback_data=f"add_condition_{client_id}"),
-         InlineKeyboardButton("✏️ Редагувати", callback_data=f"edit_client_{client_id}")],
+         InlineKeyboardButton("⚙️ Умови", callback_data=f"manage_conditions_{client_id}")],
+        [InlineKeyboardButton("✏️ Редагувати нотатку", callback_data=f"edit_note_{client_id}")],
         [InlineKeyboardButton("⬅️ Назад", callback_data="clients_service")]
     ]
 
@@ -1473,6 +1474,17 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['edit_note_client_id'] = None
         return
 
+    # --- СТАРТ РЕДАГУВАННЯ НОТАТКИ ---
+    async def edit_note_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        query = update.callback_query
+        await query.answer()
+
+        client_id = int(query.data.split("_")[-1])
+        context.user_data['step'] = 'edit_note'
+        context.user_data['edit_note_client_id'] = client_id
+
+        await query.edit_message_text("📝 Введіть нову нотатку для клієнта:")
+
     # --- Додавання примітки до запису (залишаємо як було) ---
     if user_step == 'add_note' and update.effective_user.id == ADMIN_IDS:
         booking_id = context.user_data['note_booking_id']
@@ -1728,10 +1740,15 @@ def main():
         states={
             ADDING_CONDITION: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_condition)],
             EDITING_CONDITION: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_edited_condition)],
+            EDITING_NOTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_edited_note)]
         },
         fallbacks=[],
     ))
 
+    # --- Хендлер редагування нотатки ---
+    app.add_handler(CallbackQueryHandler(edit_note_start, pattern=r'^edit_note_\d+$'))
+
     app.run_polling()
+
 if __name__ == "__main__":
     main()
