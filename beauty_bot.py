@@ -629,7 +629,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
-    print("CALLBACK DATA:", query.data)
+
+    print("=== [CALLBACK TRIGGERED] ===")
+    print(f"User ID: {user_id}")
+    print(f"Callback Data: {query.data}")
 
     if query.data == "manage_schedule":
         await manage_schedule_handler(update, context)
