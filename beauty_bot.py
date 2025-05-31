@@ -19,6 +19,7 @@ try:
 except ImportError:
     def add_to_google_sheet(*args, **kwargs):
         pass
+
 # --- СТАНИ ДЛЯ ConversationHandler ---
 ADDING_CONDITION, EDITING_CONDITION, EDITING_NOTE = range(3)
 
@@ -966,7 +967,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"Callback Data: {query.data}")
 
     if query.data.startswith('proc_'):
-        # Встановлюємо вибрану процедуру
+        print("=== PROC BRANCH ENTERED ===")
         proc_map = {
             'proc_brows': 'Корекція брів (ідеальна форма)',
             'proc_tint_brows': 'Фарбування + корекція брів',
@@ -975,7 +976,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }
         context.user_data['procedure'] = proc_map[query.data]
         context.user_data['step'] = 'book_date'
-        # Далі логіка показу дат...
         today = datetime.now().date()
         dates = []
         conn = sqlite3.connect('appointments.db')
@@ -1002,6 +1002,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if query.data.startswith('date_'):
+        # ВИКОРИСТОВУЙ datetime вже з глобального імпорту!
         print("==> [date_] step before:", context.user_data.get('step'))
         print("==> [date_] booking_client_id:", context.user_data.get('booking_client_id'))
         print("==> [date_] procedure:", context.user_data.get('procedure'))
@@ -1028,7 +1029,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 times = [f"{h:02d}:00" for h in range(11, 19)]
 
         # ---- ФІЛЬТРУЄМО години для сьогодні ----
-        from datetime import datetime, timedelta
         today_str = datetime.now().strftime("%d.%m")
         if date == today_str:
             now = datetime.now()
@@ -1138,7 +1138,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
         return
-    
+
     if query.data == "manage_schedule":
         await manage_schedule_handler(update, context)
         return
