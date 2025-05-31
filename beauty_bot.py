@@ -1002,7 +1002,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if query.data.startswith('date_'):
-        # ВИКОРИСТОВУЙ datetime вже з глобального імпорту!
         print("==> [date_] step before:", context.user_data.get('step'))
         print("==> [date_] booking_client_id:", context.user_data.get('booking_client_id'))
         print("==> [date_] procedure:", context.user_data.get('procedure'))
@@ -1014,6 +1013,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data['step'] = None
         print("==> [date_] step after:", context.user_data.get('step'))
         print("==> [date_] date:", context.user_data.get('date'))
+
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
         c.execute("SELECT times FROM schedule WHERE date = ?", (date,))
@@ -1028,18 +1028,23 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 times = [f"{h:02d}:00" for h in range(11, 19)]
 
-        # ---- ФІЛЬТРУЄМО години для сьогодні ----
+        # --- ФІЛЬТР СЛОТІВ НА СЬОГОДНІ ---
         today_str = datetime.now().strftime("%d.%m")
         if date == today_str:
             now = datetime.now()
-            min_time = (now + timedelta(hours=3)).time()
             filtered_times = []
             for t in times:
                 slot_time = datetime.strptime(t, "%H:%M").time()
-                if slot_time >= min_time:
+                if (now.hour == 14 and now.minute < 30 and slot_time >= datetime.strptime("17:00", "%H:%M").time()):
                     filtered_times.append(t)
+                elif (now.hour == 14 and now.minute >= 30 and slot_time >= datetime.strptime("18:00", "%H:%M").time()):
+                    filtered_times.append(t)
+                elif not (now.hour == 14):  # всі інші години — стандартний фільтр
+                    min_time = (now + timedelta(hours=3)).time()
+                    if slot_time >= min_time:
+                        filtered_times.append(t)
             times = filtered_times
-        # ---- /ФІЛЬТР ----
+        # --- /ФІЛЬТР ---
 
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
