@@ -209,6 +209,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "— глянути Instagram або написати майстру\n\n"
         "🌸 Краса починається тут!"
     )
+    # Головне: не відправляй два повідомлення!
+    if hasattr(update, "callback_query") and update.callback_query:
+        await update.callback_query.edit_message_text(
+            welcome, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown"
+        )
+    elif hasattr(update, "message") and update.message:
+        await update.message.reply_text(
+            welcome, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown"
+        )
+
 
     # Відправляємо меню ТІЛЬКИ ОДНИМ СПОСОБОМ — або edit_message_text, або reply_text!
     if getattr(update, "callback_query", None):
@@ -2345,3 +2355,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
