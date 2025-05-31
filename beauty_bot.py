@@ -2320,13 +2320,11 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
 
-    # --- Хендлери картки клієнта ---
+    # --- Спеціальні callback-хендлери по паттерну ---
     app.add_handler(CallbackQueryHandler(show_client_card, pattern=r'^client_\d+$'))
     app.add_handler(CallbackQueryHandler(add_condition_start, pattern=r'^addcond_\d+$'))
     app.add_handler(CallbackQueryHandler(list_conditions_handler, pattern=r'^listcond_\d+$'))
     app.add_handler(CallbackQueryHandler(edit_note_start, pattern=r'^editnote_\d+$'))
-
-    # --- Хендлери видалення умов ---
     app.add_handler(CallbackQueryHandler(delete_condition, pattern=r'^delcond_\d+$'))
     app.add_handler(CallbackQueryHandler(confirm_delete, pattern='^confirm_delete$'))
     app.add_handler(CallbackQueryHandler(cancel_delete, pattern='^cancel_delete$'))
@@ -2347,12 +2345,12 @@ def main():
         per_message=False
     ))
 
-    # --- Універсальний хендлер (завжди останнім!) ---
-    app.add_handler(CallbackQueryHandler(button_handler))
+    # --- Загальний універсальний callback-хендлер для решти кнопок ---
+    app.add_handler(CallbackQueryHandler(button_handler))  # Додається останнім!
 
     app.run_polling()
 
-
 if __name__ == "__main__":
     main()
+
 
