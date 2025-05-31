@@ -38,127 +38,82 @@ def init_db():
 
     # --- Таблиця клієнтів ---
     c.execute("""
-              CREATE TABLE IF NOT EXISTS clients
-              (
-                  id
-                  INTEGER
-                  PRIMARY
-                  KEY
-                  AUTOINCREMENT,
-                  name
-                  TEXT,
-                  phone
-                  TEXT
-                  UNIQUE,
-                  user_id
-                  INTEGER,
-                  note
-                  TEXT,
-                  created_at
-                  TEXT,
-                  updated_at
-                  TEXT
-              )
-              """)
+        CREATE TABLE IF NOT EXISTS clients (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            phone TEXT UNIQUE,
+            user_id INTEGER,
+            note TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
 
     # --- Таблиця розкладу ---
     c.execute("""
-              CREATE TABLE IF NOT EXISTS schedule
-              (
-                  id
-                  INTEGER
-                  PRIMARY
-                  KEY
-                  AUTOINCREMENT,
-                  date
-                  TEXT,
-                  times
-                  TEXT
-              )
-              """)
+        CREATE TABLE IF NOT EXISTS schedule (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT,
+            times TEXT
+        )
+    """)
 
     # --- Таблиця вихідних днів ---
     c.execute("""
-              CREATE TABLE IF NOT EXISTS deleted_days
-              (
-                  date
-                  TEXT
-                  PRIMARY
-                  KEY
-              )
-              """)
+        CREATE TABLE IF NOT EXISTS deleted_days (
+            date TEXT PRIMARY KEY
+        )
+    """)
 
     # --- Таблиця прайсу ---
     c.execute("""
-              CREATE TABLE IF NOT EXISTS price_list
-              (
-                  id
-                  INTEGER
-                  PRIMARY
-                  KEY
-                  AUTOINCREMENT,
-                  name
-                  TEXT
-                  UNIQUE,
-                  price
-                  INTEGER
-              )
-              """)
+        CREATE TABLE IF NOT EXISTS price_list (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE,
+            price INTEGER
+        )
+    """)
 
     # --- Таблиця записів (bookings) ---
-    # --- Таблиця записів (bookings) ---
     c.execute("""
-              CREATE TABLE IF NOT EXISTS bookings
-              (
-                  id
-                  INTEGER
-                  PRIMARY
-                  KEY
-                  AUTOINCREMENT,
-                  user_id
-                  INTEGER,
-                  client_id
-                  INTEGER,
-                  name
-                  TEXT,
-                  phone
-                  TEXT,
-                  procedure
-                  TEXT,
-                  date
-                  TEXT,
-                  time
-                  TEXT,
-                  status
-                  TEXT,
-                  note
-                  TEXT
-              )
-              """)
+        CREATE TABLE IF NOT EXISTS bookings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            client_id INTEGER,
+            name TEXT,
+            phone TEXT,
+            procedure TEXT,
+            date TEXT,
+            time TEXT,
+            status TEXT,
+            note TEXT
+        )
+    """)
 
     # --- Таблиця особливих умов клієнта ---
     c.execute("""
-              CREATE TABLE IF NOT EXISTS client_conditions
-              (
-                  id
-                  INTEGER
-                  PRIMARY
-                  KEY
-                  AUTOINCREMENT,
-                  client_id
-                  INTEGER
-                  NOT
-                  NULL,
-                  condition_text
-                  TEXT
-                  NOT
-                  NULL,
-                  created_at
-                  TIMESTAMP
-                  DEFAULT
-                  CURRENT_TIMESTAMP
-              )
-              """)
+        CREATE TABLE IF NOT EXISTS client_conditions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_id INTEGER NOT NULL,
+            condition_text TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # --- Таблиця витрат ---
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS expenses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT,
+            category TEXT,
+            amount INTEGER,
+            note TEXT
+        )
+    """)
+
+    conn.commit()
+    conn.close()
+
 
     # --- Додаємо дефолтні послуги, якщо таблиця price_list порожня ---
     c.execute("SELECT COUNT(*) FROM price_list")
