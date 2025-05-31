@@ -802,17 +802,16 @@ async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     today = datetime.now().date()
-    # Вибираємо найближчі 10 днів
-    all_dates = [(today + timedelta(days=i)).strftime("%d.%m") for i in range(10)]
+    # Генеруємо найближчі 10 днів у форматі %d.%m.%Y
+    all_dates = [(today + timedelta(days=i)).strftime("%d.%m.%Y") for i in range(10)]
 
-    # Беремо дати, які вже видалені
-    conn = sqlite3.connect('appointments.db')
-    c = conn.cursor()
-    c.execute("SELECT date FROM deleted_days")
-    deleted = {row[0] for row in c.fetchall()}
-    conn.close()
+    # Отримуємо вже встановлені вихідні
+    with sqlite3.connect('appointments.db') as conn:
+        c = conn.cursor()
+        c.execute("SELECT date FROM deleted_days")
+        deleted = {row[0] for row in c.fetchall()}
 
-    # Залишаємо лише ті, що ще не вихідні
+    # Фільтруємо лише ті, що ще не вихідні
     available_dates = [d for d in all_dates if d not in deleted]
 
     if not available_dates:
@@ -822,8 +821,10 @@ async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
         return
 
+    # Створюємо кнопки з короткою датою, але повним callback_data
     keyboard = [
-        [InlineKeyboardButton(f"❌ {date}", callback_data=f"delday_{date}")] for date in available_dates
+        [InlineKeyboardButton(f"❌ {datetime.strptime(date, '%d.%m.%Y').strftime('%d.%m')}", callback_data=f"delday_{date}")]
+        for date in available_dates
     ]
     keyboard.append([InlineKeyboardButton("⬅️ Назад", callback_data="manage_schedule")])
 
@@ -831,6 +832,7 @@ async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         "💤 Обери день для вихідного (цей день стане недоступним для запису):",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
+
 # --- ВИВОДИТЬ УМОВИ КЛІЄНТА ---
 async def list_conditions_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     import sqlite3
@@ -1491,17 +1493,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if query.data.startswith("delday_"):
-        date = query.data.replace("delday_", "")  # очікується "31.05.2024"
+        date = query.data.replace("delday_", "")  # очікуємо формат "31.05.2024"
 
-        # Перевірка формату дати
+        # Перевіряємо формат дати
         try:
             datetime.strptime(date, "%d.%m.%Y")
         except ValueError:
             await query.edit_message_text("⚠️ Помилка: невірний формат дати.")
             return
 
+        # Додаємо в базу з захистом від дублювань та блокувань
         try:
-            # Використання with + timeout = уникнення блокування
             with sqlite3.connect('appointments.db', timeout=5) as conn:
                 c = conn.cursor()
                 c.execute("INSERT INTO deleted_days (date) VALUES (?)", (date,))
@@ -1513,31 +1515,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text("🚧 База даних тимчасово заблокована. Спробуйте ще раз пізніше.")
             return
 
-        # Показати коротку дату
+        # Відображаємо коротку дату
         date_short = datetime.strptime(date, "%d.%m.%Y").strftime("%d.%m")
         await query.edit_message_text(
             f"❌ День {date_short} зроблено вихідним і записів не буде.",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Назад", callback_data="manage_schedule")]])
         )
-
-    if query.data.startswith("client_note_"):
-        client_id = int(query.data.replace("client_note_", ""))
-        # Вибираємо ім’я клієнта
-        conn = sqlite3.connect('appointments.db')
-        c = conn.cursor()
-        c.execute("SELECT name FROM clients WHERE id=?", (client_id,))
-        row = c.fetchone()
-        conn.close()
-        name = row[0] if row else "Невідомий"
-        await query.message.reply_text(
-            f"Введіть нову примітку для {name}:",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("⬅️ Назад", callback_data=f"client_{client_id}")]
-            ])
-        )
-        context.user_data['edit_note_client_id'] = client_id
-        context.user_data['step'] = 'edit_note'
-        return
 
     if query.data.startswith("client_history_"):
         client_id = int(query.data.replace("client_history_", ""))
