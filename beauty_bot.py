@@ -730,67 +730,54 @@ async def client_search_text_handler(update: Update, context: ContextTypes.DEFAU
     context.user_data.pop('client_search', None)
 
 
-async def show_client_card(update, context, client_id=None):
+async def show_client_card(update, context, client_id):
     import sqlite3
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-    query = update.callback_query
-    if not client_id:
-        client_id = int(query.data.replace("client_", ""))  # Отримуємо client_id із callback_data
-        await query.answer()
-
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
+    c.execute("SELECT name, phone, components FROM clients WHERE id=?", (client_id,))
+    row = c.fetchone()
+    name, phone, components = row if row else ("-", "-", "-")
 
-    # Отримуємо інформацію про клієнта
-    c.execute("SELECT name, phone, note FROM clients WHERE id=?", (client_id,))
-    result = c.fetchone()
-    if not result:
-        await query.message.reply_text("❌ Клієнта не знайдено.")
-        conn.close()
-        return
-
-    name, phone, note = result
-
-    # Дата останнього запису
-    c.execute("SELECT MAX(date) FROM bookings WHERE client_id=?", (client_id,))
-    last_visit = c.fetchone()[0] or "—"
-
-    # Особливі умови
-    c.execute("SELECT condition_text FROM client_conditions WHERE client_id=?", (client_id,))
-    conditions = [row[0] for row in c.fetchall()]
-    special_conditions = '\n'.join(f"— {c}" for c in conditions) if conditions else "—"
-
+    c.execute("SELECT date, procedure FROM bookings WHERE client_id=? ORDER BY date DESC LIMIT 5", (client_id,))
+    history = c.fetchall()
     conn.close()
 
-    text = (
-        f"👤 *{name}*\n"
-        f"📞 {phone}\n"
-        f"📅 Останній візит: {last_visit}\n"
-        f"⚠️ Умови:\n{special_conditions}\n\n"
-        f"📝 Примітка:\n{note or '—'}"
+    history_text = ""
+    for d, p in history:
+        history_text += f"• {d} — {p}\n"
+    if not history_text:
+        history_text = "немає процедур"
+
+    last_visit, last_proc = history[0] if history else ("-", "-")
+
+    card_text = (
+        f"💁‍♀️ *Ім’я:* {name}\n"
+        f"📆 *Останній запис:* {last_visit} ({last_proc})\n"
+        f"🧴 *Компоненти:* {components if components else 'не вказано'}\n"
+        f"📲 *Телефон:* {phone}\n\n"
+        f"🗂 *Історія процедур:*\n{history_text}"
     )
 
     keyboard = [
-        [InlineKeyboardButton("📅 Записати на процедуру", callback_data=f"client_book_{client_id}")],
-        [InlineKeyboardButton("➕ Додати умову", callback_data=f"addcond_{client_id}")],
-        [InlineKeyboardButton("📋 Всі умови", callback_data=f"listcond_{client_id}")],
-        [InlineKeyboardButton("✏️ Змінити нотатку", callback_data=f"editnote_{client_id}")],
-        [InlineKeyboardButton("⬅️ Назад", callback_data="back_to_clients")]
+        [InlineKeyboardButton("💌 Записати", callback_data=f'client_book_{client_id}')],
+        [InlineKeyboardButton("🔬 Компоненти", callback_data=f'edit_components_{client_id}')],
+        [InlineKeyboardButton("🔙 Назад", callback_data='back_to_clients')],
     ]
 
-    if query:
-        await query.edit_message_text(
-            text=text,
-            parse_mode="Markdown",
-            reply_markup=InlineKeyboardMarkup(keyboard)
+    if hasattr(update, "callback_query") and update.callback_query:
+        await update.callback_query.edit_message_text(
+            card_text,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode="Markdown"
         )
     else:
         await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=text,
-            parse_mode="Markdown",
-            reply_markup=InlineKeyboardMarkup(keyboard)
+            chat_id=update.effective_user.id,
+            text=card_text,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode="Markdown"
         )
 
 async def show_client_card_by_phone(update, context, phone):
@@ -1541,9 +1528,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data == "clients_top":
         await clients_top_handler(update, context)
         return
-    if query.data.startswith("clientphone_"):
-        phone = query.data.replace("clientphone_", "")
-        await show_client_card_by_phone(update, context, phone)
+    if query.data.startswith("client_"):
+        client_id = int(query.data.replace("client_", ""))
+        await show_client_card(update, context, client_id)
         return
     if query.data == "client_add":
         await client_add_handler(update, context)
@@ -1551,7 +1538,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data == "client_search_start":
         await client_search_start_handler(update, context)
         return
-
+    if query.data.startswith("edit_components_"):
+        client_id = int(query.data.replace("edit_components_", ""))
+        context.user_data['edit_components_id'] = client_id
+        await query.edit_message_text(
+            "Введіть нові компоненти для клієнта:",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔙 Назад", callback_data=f'client_{client_id}')]
+            ])
+        )
+        context.user_data['step'] = 'edit_components'
+        return
 
     # Далі всі інші гілки button_handler...
     if query.data == 'edit_schedule':
@@ -1836,6 +1833,22 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # --- 3. Пошук клієнта ---
     if context.user_data.get('client_search'):
         await client_search_text_handler(update, context)
+        return
+    if context.user_data.get('step') == 'edit_components':
+        client_id = context.user_data.get('edit_components_id')
+        new_components = update.message.text.strip()
+
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("UPDATE clients SET components=? WHERE id=?", (new_components, client_id))
+        conn.commit()
+        conn.close()
+
+        await update.message.reply_text("✅ Компоненти оновлено!")
+        # Показати нову картку клієнта
+        await show_client_card(update, context, client_id)
+        context.user_data['step'] = None
+        context.user_data['edit_components_id'] = None
         return
 
     # --- 4. Редагування нотатки ---
