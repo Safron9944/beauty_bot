@@ -1318,16 +1318,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    if query.data == "stats_by_period":
-        context.user_data['step'] = 'stats_period_start'
-        await query.edit_message_text(
-            "Введіть дату початку періоду (дд.мм.рррр):",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("⬅️ Назад", callback_data="admin_service")]
-            ])
-        )
-        return
-
     if query.data == "expense_list":
         today = datetime.now()
         month_ago = (today - timedelta(days=30)).strftime("%d.%m.%Y")
@@ -1439,6 +1429,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if query.data == 'stats_month':
         await show_stats_for_period(update, context, 'month')
+        return
+    if query.data == 'stats_by_period':
+        context.user_data['step'] = 'stats_period_start'
+        await update.callback_query.edit_message_text(
+            "Введіть дату початку періоду (дд.мм.рррр):",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Назад", callback_data="admin_stats")]])
+        )
         return
 
     # --- Обробка вибору години для дня (settime_) ---
@@ -1953,54 +1950,6 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['edit_day'] = None
         return
 
-    async def show_stats_for_custom_period(update, context, date_start, date_end):
-        try:
-            start = datetime.strptime(date_start, "%d.%m.%Y")
-            end = datetime.strptime(date_end, "%d.%m.%Y")
-        except Exception:
-            await update.message.reply_text("Невірний формат дати! Спробуйте ще раз (дд.мм.рррр).")
-            context.user_data['step'] = 'stats_period_start'
-            return
-
-        # Генеруємо повний список дат у форматі "%d.%m.%Y"
-        all_dates = [(start + timedelta(days=i)).strftime("%d.%m.%Y") for i in range((end - start).days + 1)]
-
-        conn = sqlite3.connect('appointments.db')
-        c = conn.cursor()
-        # Дохід
-        c.execute(
-            f"SELECT COALESCE(SUM(price_list.price),0) FROM bookings "
-            f"LEFT JOIN price_list ON bookings.procedure = price_list.name "
-            f"WHERE date IN ({','.join(['?'] * len(all_dates))}) AND status='Підтверджено'",
-            all_dates
-        )
-        income = c.fetchone()[0] or 0
-
-        # Витрати
-        c.execute(
-            f"SELECT COALESCE(SUM(amount),0) FROM expenses "
-            f"WHERE date IN ({','.join(['?'] * len(all_dates))})",
-            all_dates
-        )
-        expenses = c.fetchone()[0] or 0
-
-        profit = income - expenses
-        conn.close()
-
-        keyboard = [
-            [InlineKeyboardButton("Змінити період", callback_data="stats_by_period")],
-            [InlineKeyboardButton("⬅️ Назад", callback_data="admin_service")]
-        ]
-        text = (
-            f"📊 Статистика за період:\n"
-            f"З: {date_start}   По: {date_end}\n\n"
-            f"Дохід: {income} грн\n"
-            f"Витрати: {expenses} грн\n"
-            f"Чистий прибуток: {profit} грн"
-        )
-        await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
-        return
-
     # --- Обробка введення ПІБ та телефону для запису ---
     if user_step == 'get_fullinfo':
         print("==> [get_fullinfo] Вхід")
@@ -2116,7 +2065,7 @@ async def send_reminder(user_id, procedure, date, time, mode="day"):
     except Exception as e:
         print(f"Не вдалося надіслати нагадування: {e}")
 
-async def admin_stats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def admin_stats_handler(update, context):
     keyboard = [
         [
             InlineKeyboardButton("За сьогодні", callback_data="stats_today"),
@@ -2129,6 +2078,7 @@ async def admin_stats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     await update.callback_query.edit_message_text(
         "📊 Яку статистику показати?", reply_markup=InlineKeyboardMarkup(keyboard)
     )
+
 
 import calendar
 
@@ -2168,7 +2118,8 @@ async def show_stats_for_custom_period(update, context, date_start, date_end):
 
     keyboard = [
         [InlineKeyboardButton("Змінити період", callback_data="stats_by_period")],
-        [InlineKeyboardButton("⬅️ Назад", callback_data="admin_service")]
+        [InlineKeyboardButton("⬅️ До статистики", callback_data="admin_stats")],
+        [InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")],
     ]
     text = (
         f"📊 Статистика за період:\n"
@@ -2177,8 +2128,11 @@ async def show_stats_for_custom_period(update, context, date_start, date_end):
         f"Витрати: {expenses} грн\n"
         f"Чистий прибуток: {profit} грн"
     )
-    await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
-
+    if hasattr(update, "callback_query") and update.callback_query:
+        await update.callback_query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
+    else:
+        await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
+    return
 
 
 # --- Всі твої async def ... ---
