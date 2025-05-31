@@ -256,7 +256,6 @@ async def admin_service_handler(update: Update, context: ContextTypes.DEFAULT_TY
 # --- РЕДАГУВАННЯ ГРАФІКУ (АДМІН) ---
 async def edit_schedule_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    # Показуємо кнопки днів на 10 днів вперед (які є у графіку або яких немає)
     today = datetime.now().date()
     dates = []
     conn = sqlite3.connect('appointments.db')
@@ -266,10 +265,13 @@ async def edit_schedule_handler(update: Update, context: ContextTypes.DEFAULT_TY
     conn.close()
     for i in range(10):
         d = today + timedelta(days=i)
-        ddate_str = d.strftime("%d.%m.%Y")
+        date_str = d.strftime("%d.%m.%Y")  # !!! тут має бути лише повна дата
         dates.append(date_str)
     keyboard = [
-        [InlineKeyboardButton(f"🗓️ {date} {'✅' if date in scheduled_dates else '➕'}", callback_data=f'edit_day_{date}')]
+        [InlineKeyboardButton(
+            f"🗓️ {datetime.strptime(date, '%d.%m.%Y').strftime('%d.%m')} {'✅' if date in scheduled_dates else '➕'}",
+            callback_data=f'edit_day_{date}'
+        )]
         for date in dates
     ]
     keyboard.append([InlineKeyboardButton("⬅️ Назад", callback_data="manage_schedule")])
@@ -281,9 +283,10 @@ async def edit_schedule_handler(update: Update, context: ContextTypes.DEFAULT_TY
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
+
 async def edit_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    day = query.data.replace('edit_day_', '')
+    day = query.data.replace('edit_day_', '')  # вже у форматі "31.05.2024"
     context.user_data['edit_day'] = day
 
     conn = sqlite3.connect('appointments.db')
@@ -295,33 +298,27 @@ async def edit_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['chosen_times'] = chosen_times
 
     # Визначаємо стандартні години для дня
-    weekday = datetime.strptime(day + f".{datetime.now().year}", "%d.%m.%Y").weekday()
+    weekday = datetime.strptime(day, "%d.%m.%Y").weekday()
     if weekday < 5:
         standard_times = [f"{h:02d}:00" for h in range(14, 19)]
     else:
         standard_times = [f"{h:02d}:00" for h in range(11, 19)]
 
-    # Оригінальний список доступних годин, без зайнятих
+    # Список доступних годин, без зайнятих
     available_times = [t for t in standard_times if t not in chosen_times]
 
     # --- Додаємо фільтр, якщо дата = сьогодні ---
-    from datetime import datetime, timedelta
     now = datetime.now()
-    day_str = day.strip().replace(" ", "")
-    today_str = now.strftime("%d.%m").replace(" ", "")
+    today_str = now.strftime("%d.%m.%Y")
 
-    print(f"DEBUG: day_str = '{day_str}', today_str = '{today_str}'")
-
-    if day_str == today_str:
+    if day == today_str:
         min_time = (now + timedelta(hours=3)).time()
         filtered_times = []
         for t in available_times:
             slot_time = datetime.strptime(t, "%H:%M").time()
-            print(f"DEBUG: t = {t}, slot_time = {slot_time}, min_time = {min_time}")
             if slot_time >= min_time:
                 filtered_times.append(t)
         available_times = filtered_times
-        print(f"DEBUG: available_times після фільтрації: {available_times}")
 
     # --- Формуємо клавіатуру тільки з доступних годин ---
     if available_times:
@@ -334,6 +331,7 @@ async def edit_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     else:
         await query.edit_message_text("На обраний день немає доступних вільних годин. Спробуйте іншу дату.")
+
 
     # 3. Створюємо кнопки з галочками
     keyboard = []
@@ -883,7 +881,7 @@ async def calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⛔ Доступно тільки адміну.")
         return
     today = datetime.now().date()
-    today_str = today.strftime("%d.%m.%Y")
+    today_str = today.strftime("%d.%m.%Y")  # тепер повна дата
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
     c.execute(
@@ -897,9 +895,11 @@ async def calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Назад", callback_data="manage_schedule")]])
         )
         return
-    text = f"📅 Записи на {today_str}:\n\n"
+    text = f"📅 Записи на {today.strftime('%d.%m.%Y')}:\n\n"
     for rec in rows:
         date, time, procedure, name, phone, status = rec
+        # Показуємо коротку дату, якщо треба
+        date_short = datetime.strptime(date, "%d.%m.%Y").strftime("%d.%m")
         text += (
             f"🕒 {time} — {procedure}\n"
             f"👤 {name}, 📱 {phone}\n"
@@ -914,7 +914,7 @@ async def week_calendar_handler(update: Update, context: ContextTypes.DEFAULT_TY
         await update.message.reply_text("⛔ Доступно тільки адміну.")
         return
     today = datetime.now().date()
-    week_dates = [(today + timedelta(days=i)).strftime("%d.%m.%Y") for i in range(7)]
+    week_dates = [(today + timedelta(days=i)).strftime("%d.%m.%Y") for i in range(7)]  # тепер повна дата!
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
     c.execute(
@@ -931,8 +931,9 @@ async def week_calendar_handler(update: Update, context: ContextTypes.DEFAULT_TY
     text = "📆 Записи на цей тиждень:\n\n"
     for rec in rows:
         date, time, procedure, name, phone, status = rec
+        date_short = datetime.strptime(date, "%d.%m.%Y").strftime("%d.%m")
         text += (
-            f"📅 {date} 🕒 {time} — {procedure}\n"
+            f"📅 {date_short} 🕒 {time} — {procedure}\n"
             f"👤 {name}, 📱 {phone}\n"
             f"Статус: {status}\n\n"
         )
@@ -951,7 +952,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"Callback Data: {query.data}")
 
     if query.data.startswith('proc_'):
-        print("=== PROC BRANCH ENTERED ===")
         proc_map = {
             'proc_brows': 'Корекція брів (ідеальна форма)',
             'proc_tint_brows': 'Фарбування + корекція брів',
@@ -969,14 +969,15 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn.close()
         for i in range(7):
             d = today + timedelta(days=i)
-            ddate_str = d.strftime("%d.%m.%Y")
-            if date_str not in deleted:
-                dates.append(date_str)
+            full_date = d.strftime("%d.%m.%Y")  # ТУТ ПОВНА ДАТА для логіки
+            show_date = d.strftime("%d.%m")  # ТУТ КОРОТКА ДАТА для користувача
+            if full_date not in deleted:
+                dates.append((full_date, show_date))
         if not dates:
             await query.edit_message_text("⛔ Немає доступних днів для запису. Зверніться до майстра!")
             return
         keyboard = [
-            [InlineKeyboardButton(f"📅 Обираю {date} 💋", callback_data=f'date_{date}')] for date in dates
+            [InlineKeyboardButton(f"📅 Обираю {show} 💋", callback_data=f'date_{full}')] for full, show in dates
         ]
         keyboard.append([InlineKeyboardButton("⬅️ Назад до процедур", callback_data='back_to_procedure')])
         await query.edit_message_text(
@@ -989,7 +990,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print("==> [date_] step before:", context.user_data.get('step'))
         print("==> [date_] booking_client_id:", context.user_data.get('booking_client_id'))
         print("==> [date_] procedure:", context.user_data.get('procedure'))
-        date = query.data.replace('date_', '')
+        date = query.data.replace('date_', '')  # Тепер date у форматі "31.05.2024"
         context.user_data['date'] = date
         if context.user_data.get('step') == 'book_date':
             context.user_data['step'] = 'book_time'
@@ -1006,14 +1007,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if row:
             times = [t.strip() for t in row[0].split(',')]
         else:
-            day = datetime.strptime(date + f".{datetime.now().year}", "%d.%m.%Y").weekday()
+            day = datetime.strptime(date, "%d.%m.%Y").weekday()
             if day < 5:
                 times = [f"{h:02d}:00" for h in range(14, 19)]
             else:
                 times = [f"{h:02d}:00" for h in range(11, 19)]
 
         # --- ФІЛЬТР СЛОТІВ НА СЬОГОДНІ ---
-        today_str = datetime.now().strftime("%d.%m")
+        today_str = datetime.now().strftime("%d.%m.%Y")  # Тепер з роком!
         if date == today_str:
             now = datetime.now()
             filtered_times = []
@@ -1052,8 +1053,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             keyboard.append([InlineKeyboardButton("⬅️ Назад до вибору дати", callback_data='back_to_procedure')])
         else:
             keyboard.append([InlineKeyboardButton("⬅️ Назад до календаря", callback_data='back_to_date')])
+
+        # Додаємо коротку дату для користувача
+        date_short = datetime.strptime(date, "%d.%m.%Y").strftime("%d.%m")
         await query.edit_message_text(
-            "👑 Час бути зіркою! Обирай ідеальний час ❤️\n"
+            f"👑 Обрано дату: {date_short}\n"
+            "Час бути зіркою! Обирай ідеальний час ❤️\n"
             "Хочеш змінити дату? Натискай ⬅️",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
@@ -1062,7 +1067,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data.startswith('time_'):
         time = query.data.replace('time_', '')
         procedure = context.user_data.get('procedure')
-        date = context.user_data.get('date')
+        date = context.user_data.get('date')  # ТУТ вже повна дата "31.05.2024"
 
         if context.user_data.get('booking_client_id'):
             # Адмін: записуємо клієнта напряму
@@ -1086,9 +1091,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             keyboard = [
                 [InlineKeyboardButton("⬅️ До картки клієнта", callback_data=f"client_{client_id}")]
             ]
+            # Формуємо коротку дату для відображення
+            date_short = datetime.strptime(date, "%d.%m.%Y").strftime("%d.%m")
             await query.edit_message_text(
-                "✅ Клієнта записано на процедуру!\n\n"
-                "Можна повернутись до картки клієнта для наступних дій.",
+                f"✅ Клієнта записано на процедуру!\n"
+                f"Процедура: {procedure}\n"
+                f"Дата: {date_short}\n"
+                f"Час: {time}\n\n"
+                f"Можна повернутись до картки клієнта для наступних дій.",
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
             context.user_data.clear()
@@ -1465,18 +1475,19 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await week_calendar_handler(update, context)
         return
 
-    if query.data.startswith("delday_") and user_id == ADMIN_IDS:
-        date = query.data.replace('delday_', '')
+    if query.data.startswith("delday_"):
+        date = query.data.replace("delday_", "")  # тут вже "31.05.2024"
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-        c.execute("INSERT OR IGNORE INTO deleted_days (date) VALUES (?)", (date,))
+        c.execute("INSERT INTO deleted_days (date) VALUES (?)", (date,))
         conn.commit()
         conn.close()
+        # Показати користувачу коротко:
+        date_short = datetime.strptime(date, "%d.%m.%Y").strftime("%d.%m")
         await query.edit_message_text(
-            f"✅ День {date} зроблено вихідним! Більше недоступний для запису.",
+            f"❌ День {date_short} зроблено вихідним і записів не буде.",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Назад", callback_data="manage_schedule")]])
         )
-        return
 
     if query.data.startswith("client_note_"):
         client_id = int(query.data.replace("client_note_", ""))
@@ -1832,8 +1843,12 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # --- Додавання/редагування часу для дня (адмін) ---
     if user_step == 'edit_times' and update.effective_user.id in ADMIN_IDS:
-        day = context.user_data.get('edit_day')
+        day = context.user_data.get('edit_day')  # може бути як "31.05", так і "31.05.2024"
         new_times = text.strip()
+        # Якщо дата коротка — додаємо рік
+        if len(day) == 5:
+            day = datetime.strptime(day, "%d.%m").replace(year=datetime.now().year).strftime("%d.%m.%Y")
+
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
         c.execute("SELECT id FROM schedule WHERE date = ?", (day,))
@@ -1844,10 +1859,59 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             c.execute("INSERT INTO schedule (date, times) VALUES (?, ?)", (day, new_times))
         conn.commit()
         conn.close()
-        await update.message.reply_text(f"✅ Для дня {day} оновлено години: {new_times}")
+        # Для відображення — коротка дата:
+        day_short = datetime.strptime(day, "%d.%m.%Y").strftime("%d.%m")
+        await update.message.reply_text(f"✅ Для дня {day_short} оновлено години: {new_times}")
         context.user_data['step'] = None
         context.user_data['edit_day'] = None
         return
+
+    async def show_stats_for_custom_period(update, context, date_start, date_end):
+        try:
+            start = datetime.strptime(date_start, "%d.%m.%Y")
+            end = datetime.strptime(date_end, "%d.%m.%Y")
+        except Exception:
+            await update.message.reply_text("Невірний формат дати! Спробуйте ще раз (дд.мм.рррр).")
+            context.user_data['step'] = 'stats_period_start'
+            return
+
+        # Генеруємо повний список дат у форматі "%d.%m.%Y"
+        all_dates = [(start + timedelta(days=i)).strftime("%d.%m.%Y") for i in range((end - start).days + 1)]
+
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        # Дохід
+        c.execute(
+            f"SELECT COALESCE(SUM(price_list.price),0) FROM bookings "
+            f"LEFT JOIN price_list ON bookings.procedure = price_list.name "
+            f"WHERE date IN ({','.join(['?'] * len(all_dates))}) AND status='Підтверджено'",
+            all_dates
+        )
+        income = c.fetchone()[0] or 0
+
+        # Витрати
+        c.execute(
+            f"SELECT COALESCE(SUM(amount),0) FROM expenses "
+            f"WHERE date IN ({','.join(['?'] * len(all_dates))})",
+            all_dates
+        )
+        expenses = c.fetchone()[0] or 0
+
+        profit = income - expenses
+        conn.close()
+
+        keyboard = [
+            [InlineKeyboardButton("Змінити період", callback_data="stats_by_period")],
+            [InlineKeyboardButton("⬅️ Назад", callback_data="admin_service")]
+        ]
+        text = (
+            f"📊 Статистика за період:\n"
+            f"З: {date_start}   По: {date_end}\n\n"
+            f"Дохід: {income} грн\n"
+            f"Витрати: {expenses} грн\n"
+            f"Чистий прибуток: {profit} грн"
+        )
+        await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
 
     # --- Обробка введення ПІБ та телефону для запису ---
     if user_step == 'get_fullinfo':
@@ -1944,18 +2008,26 @@ async def send_reminder(user_id, procedure, date, time, mode="day"):
     from telegram import Bot
     bot = Bot(token=TOKEN)
     try:
+        date_short = datetime.strptime(date, "%d.%m.%Y").strftime("%d.%m")
         if mode == "day":
-            text = f"⏰ Красива, нагадую: вже завтра твій бʼюті-запис на {procedure} {date} о {time}! Я чекаю тебе з гарним настроєм і натхненням ✨ До зустрічі, сонечко! 💞"
+            text = (
+                f"⏰ Красива, нагадую: вже завтра твій бʼюті-запис на {procedure} {date_short} о {time}! "
+                "Я чекаю тебе з гарним настроєм і натхненням ✨ До зустрічі, сонечко! 💞"
+            )
         elif mode == "2h":
-            text = f"💬 Твій бʼюті-час вже зовсім скоро — через 2 годинки! {procedure} {date} о {time} 🌷 Я вже готую найкращі фарби, пензлі та гарячий чай! До зустрічі, зіронько! 👑"
+            text = (
+                f"💬 Твій бʼюті-час вже зовсім скоро — через 2 годинки! {procedure} {date_short} о {time} 🌷 "
+                "Я вже готую найкращі фарби, пензлі та гарячий чай! До зустрічі, зіронько! 👑"
+            )
         else:
-            text = f"Нагадування про запис: {procedure} {date} о {time}."
+            text = f"Нагадування про запис: {procedure} {date_short} о {time}."
         await bot.send_message(
             chat_id=user_id,
             text=text
         )
     except Exception as e:
         print(f"Не вдалося надіслати нагадування: {e}")
+
 async def admin_stats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [
@@ -1981,7 +2053,8 @@ async def show_stats_for_custom_period(update, context, date_start, date_end):
         context.user_data['step'] = 'stats_period_start'
         return
 
-    all_dates = [(start + timedelta(days=i)).strftime("%d.%m") for i in range((end - start).days + 1)]
+    # Повний список дат у форматі "%d.%m.%Y"
+    all_dates = [(start + timedelta(days=i)).strftime("%d.%m.%Y") for i in range((end - start).days + 1)]
 
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
@@ -2017,6 +2090,7 @@ async def show_stats_for_custom_period(update, context, date_start, date_end):
         f"Чистий прибуток: {profit} грн"
     )
     await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
+
 
 
 # --- Всі твої async def ... ---
