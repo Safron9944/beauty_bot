@@ -795,15 +795,28 @@ async def save_note_to_booking(update, context):
     await update.message.reply_text("Оберіть дію за допомогою кнопок нижче та подаруйте собі красу! 💖")
 # --- ІНШІ АДМІН ФУНКЦІЇ ---
 async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    import sqlite3
+    from datetime import datetime, timedelta
+
     user_id = update.effective_user.id if hasattr(update, "effective_user") else update.callback_query.from_user.id
     query = update.callback_query
+
     if user_id not in ADMIN_IDS:
         await query.answer("Доступно тільки адміну", show_alert=True)
         return
 
-    today = datetime.now().date()
-    # Генеруємо найближчі 10 днів у форматі %d.%m.%Y
-    all_dates = [(today + timedelta(days=i)).strftime("%d.%m.%Y") for i in range(10)]
+    now = datetime.now()
+    today = now.date()
+    current_hour = now.hour
+    last_hour_today = 18  # Година завершення робочого дня
+
+    # Генеруємо найближчі 10 днів, пропускаючи сьогодні, якщо вже пізно
+    all_dates = []
+    for i in range(10):
+        day = today + timedelta(days=i)
+        if i == 0 and current_hour >= last_hour_today:
+            continue
+        all_dates.append(day.strftime("%d.%m.%Y"))
 
     # Отримуємо вже встановлені вихідні
     with sqlite3.connect('appointments.db') as conn:
@@ -1388,13 +1401,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chosen.append(time)
         context.user_data['chosen_times'] = chosen
 
-        # Сформуємо кнопки для всіх стандартних годин
-        try:
-            weekday = datetime.strptime(context.user_data['edit_day'], "%d.%m.%Y").weekday()
-        except ValueError:
-            await query.edit_message_text("❌ Невірний формат дати. Спробуйте ще раз або перевірте формат.")
-            return
-
+        # Формуємо кнопки
+        weekday = datetime.strptime(context.user_data['edit_day'] + f".{datetime.now().year}", "%d.%m.%Y").weekday()
         if weekday < 5:
             times = [f"{h:02d}:00" for h in range(14, 19)]
         else:
@@ -1404,9 +1412,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for t in times:
             mark = "✅" if t in chosen else "☐"
             keyboard.append([InlineKeyboardButton(f"{mark} {t}", callback_data=f"settime_{t}")])
+
+        # Додаткові кнопки:
         keyboard.append([InlineKeyboardButton("Додати вручну", callback_data="custom_time")])
         keyboard.append([InlineKeyboardButton("Зберегти", callback_data="save_times")])
-        keyboard.append([InlineKeyboardButton("⬅️ Дні", callback_data="edit_schedule")])
+        keyboard.append([InlineKeyboardButton("⬅️ Дні", callback_data="edit_schedule")])  # ← ЦЕ кнопка "назад"
 
         selected = ', '.join(chosen) if chosen else "нічого не вибрано"
         await query.edit_message_text(
