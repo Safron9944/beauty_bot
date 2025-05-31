@@ -191,7 +191,6 @@ def get_price_text():
 
 
 # --- ГОЛОВНЕ МЕНЮ ---
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("💎 Записатися на процедуру", callback_data='book')],
@@ -210,10 +209,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "— глянути Instagram або написати майстру\n\n"
         "🌸 Краса починається тут!"
     )
-    if hasattr(update, "message") and update.message:
-        await update.message.reply_text(welcome, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
-    else:
-        await update.callback_query.edit_message_text(welcome, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+
+    # Відправляємо меню ТІЛЬКИ ОДНИМ СПОСОБОМ — або edit_message_text, або reply_text!
+    if getattr(update, "callback_query", None):
+        await update.callback_query.edit_message_text(
+            welcome,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode="Markdown"
+        )
+    elif getattr(update, "message", None):
+        await update.message.reply_text(
+            welcome,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode="Markdown"
+        )
+
 
     # Далі твій старий код меню:
     keyboard = [
@@ -2335,4 +2345,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
