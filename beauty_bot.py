@@ -352,15 +352,23 @@ async def edit_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     available_times = [t for t in standard_times if t not in chosen_times]
 
     # --- Додаємо фільтр, якщо дата = сьогодні ---
+    from datetime import datetime, timedelta
     now = datetime.now()
-    if day.strip() == now.strftime("%d.%m"):
+    day_str = day.strip().replace(" ", "")
+    today_str = now.strftime("%d.%m").replace(" ", "")
+
+    print(f"DEBUG: day_str = '{day_str}', today_str = '{today_str}'")
+
+    if day_str == today_str:
         min_time = (now + timedelta(hours=3)).time()
         filtered_times = []
         for t in available_times:
             slot_time = datetime.strptime(t, "%H:%M").time()
+            print(f"DEBUG: t = {t}, slot_time = {slot_time}, min_time = {min_time}")
             if slot_time >= min_time:
                 filtered_times.append(t)
         available_times = filtered_times
+        print(f"DEBUG: available_times після фільтрації: {available_times}")
 
     # --- Формуємо клавіатуру тільки з доступних годин ---
     if available_times:
