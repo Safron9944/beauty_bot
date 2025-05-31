@@ -1213,30 +1213,40 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        # Повертаємось до вибору часу для вибраної дати
+        # Отримати години за розкладом
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
         c.execute("SELECT times FROM schedule WHERE date = ?", (date,))
         row = c.fetchone()
         conn.close()
 
-        if row:
+        if row and row[0]:
             times = [t.strip() for t in row[0].split(',')]
         else:
-            day = datetime.strptime(date + f".{datetime.now().year}", "%d.%m.%Y").weekday()
+            day = datetime.strptime(date, "%d.%m.%Y").weekday()
             if day < 5:
                 times = [f"{h:02d}:00" for h in range(14, 19)]
             else:
                 times = [f"{h:02d}:00" for h in range(11, 19)]
 
+        # Заброньовані години
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("SELECT time FROM bookings WHERE date = ?", (date,))
+        booked_times = [row[0] for row in c.fetchall()]
+        conn.close()
+        free_times = [t for t in times if t not in booked_times]
+
         keyboard = [
             [InlineKeyboardButton(f"🕒 {time} | Моє ідеальне віконце 💖", callback_data=f'time_{time}')]
-            for time in times
+            for time in free_times
         ]
-        keyboard.append([InlineKeyboardButton("⬅️ Назад до вибору дати", callback_data='back_to_date')])
+        keyboard.append([InlineKeyboardButton("⬅️ Назад до календаря", callback_data='back_to_date')])
 
+        date_short = datetime.strptime(date, "%d.%m.%Y").strftime("%d.%m")
         await query.edit_message_text(
-            "👑 Час бути зіркою! Обирай ідеальний час ❤️\n"
+            f"👑 Обрано дату: {date_short}\n"
+            "Час бути зіркою! Обирай ідеальний час ❤️\n"
             "Хочеш змінити дату? Натискай ⬅️",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
