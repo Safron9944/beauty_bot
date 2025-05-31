@@ -191,29 +191,29 @@ def get_price_text():
 
 
 # --- ГОЛОВНЕ МЕНЮ ---
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    conn = sqlite3.connect('appointments.db')
-    c = conn.cursor()
-    # Пробуємо знайти клієнта з цим user_id
-    c.execute("SELECT id FROM clients WHERE user_id=?", (user_id,))
-    row = c.fetchone()
-    conn.close()
 
-    # Якщо не знайдено, пропонуємо ввести телефон для ідентифікації
-    if not row:
-        if hasattr(update, "message") and update.message:
-            await update.message.reply_text(
-                "Ви вперше у боті або вас додав майстер вручну.\n"
-                "Щоб знайти ваші записи, введіть свій номер телефону (як вказано у майстра):"
-            )
-        else:
-            await update.callback_query.edit_message_text(
-                "Ви вперше у боті або вас додав майстер вручну.\n"
-                "Щоб знайти ваші записи, введіть свій номер телефону (як вказано у майстра):"
-            )
-        context.user_data['step'] = 'identify_by_phone'
-        return
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [
+        [InlineKeyboardButton("💎 Записатися на процедуру", callback_data='book')],
+        [InlineKeyboardButton("🗓️ Мої записи", callback_data='check_booking')],
+        [InlineKeyboardButton("💰 Прайс", callback_data='show_price')],
+        [InlineKeyboardButton(f"👩‍🎨 Ваш майстер: {MASTER_NAME}", callback_data='master_phone')]
+    ]
+    if update.effective_user.id in ADMIN_IDS:
+        keyboard.append([InlineKeyboardButton("⚙️ Адмін-сервіс", callback_data='admin_service')])
+    welcome = (
+        "✨ *Beauty-бот* зустрічає тебе з посмішкою! Тут кожна красуня знаходить свій стиль і настрій 💖\n\n"
+        "Обирай, що хочеш:\n"
+        "— записатися на процедуру\n"
+        "— подивитися свої записи\n"
+        "— знайти салон на мапі\n"
+        "— глянути Instagram або написати майстру\n\n"
+        "🌸 Краса починається тут!"
+    )
+    if hasattr(update, "message") and update.message:
+        await update.message.reply_text(welcome, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+    else:
+        await update.callback_query.edit_message_text(welcome, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
     # Далі твій старий код меню:
     keyboard = [
