@@ -111,10 +111,6 @@ def init_db():
         )
     """)
 
-    conn.commit()
-    conn.close()
-
-
     # --- Додаємо дефолтні послуги, якщо таблиця price_list порожня ---
     c.execute("SELECT COUNT(*) FROM price_list")
     if c.fetchone()[0] == 0:
