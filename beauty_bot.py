@@ -2078,6 +2078,54 @@ async def admin_stats_handler(update, context):
     await update.callback_query.edit_message_text(
         "📊 Яку статистику показати?", reply_markup=InlineKeyboardMarkup(keyboard)
     )
+async def show_stats_for_period(update, context, period):
+    import sqlite3
+    from datetime import datetime, timedelta
+
+    # Визначаємо дати
+    today = datetime.now().date()
+    if period == 'today':
+        date_list = [today.strftime("%d.%m.%Y")]
+        label = "сьогодні"
+    elif period == 'week':
+        date_list = [(today - timedelta(days=i)).strftime("%d.%m.%Y") for i in range(7)]
+        label = "за тиждень"
+    elif period == 'month':
+        date_list = [(today - timedelta(days=i)).strftime("%d.%m.%Y") for i in range(30)]
+        label = "за місяць"
+    else:
+        await update.callback_query.edit_message_text("❌ Невірний період.")
+        return
+
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+    # Кількість записів
+    c.execute(
+        f"SELECT COUNT(*) FROM bookings WHERE date IN ({','.join(['?']*len(date_list))}) AND status != 'Відмінено'",
+        date_list
+    )
+    total_bookings = c.fetchone()[0] or 0
+
+    # Дохід
+    c.execute(
+        f"""SELECT COALESCE(SUM(price_list.price),0) FROM bookings 
+            LEFT JOIN price_list ON bookings.procedure = price_list.name
+            WHERE bookings.date IN ({','.join(['?']*len(date_list))}) AND bookings.status != 'Відмінено'""",
+        date_list
+    )
+    income = c.fetchone()[0] or 0
+    conn.close()
+
+    text = (
+        f"📊 Статистика {label}:\n\n"
+        f"• Кількість записів: *{total_bookings}*\n"
+        f"• Дохід: *{income} грн*"
+    )
+
+    keyboard = [
+        [InlineKeyboardButton("⬅️ Назад", callback_data="admin_stats")]
+    ]
+    await update.callback_query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
 
 import calendar
