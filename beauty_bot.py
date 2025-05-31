@@ -1257,21 +1257,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if query.data == 'back_to_date':
-        procedure = context.user_data.get('procedure')
-        today = datetime.now().date()
-        dates = []
-        conn = sqlite3.connect('appointments.db')
-        c = conn.cursor()
-        c.execute("SELECT date FROM deleted_days")
-        deleted = {row[0] for row in c.fetchall()}
-        conn.close()
-        for i in range(7):
-            d = today + timedelta(days=i)
-            date_str = d.strftime("%d.%m.%Y")
-            if date_str not in deleted:
-                dates.append(date_str)
+        context.user_data.pop('date', None)
+        context.user_data.pop('time', None)
+        dates = get_available_dates(days_ahead=7)
+
+        if not dates:
+            await query.edit_message_text("⛔ Немає доступних днів для запису. Зверніться до майстра!")
+            return
+
         keyboard = [
-            [InlineKeyboardButton(f"📅 Обираю {date} 💋", callback_data=f'date_{date}')] for date in dates
+            [InlineKeyboardButton(f"📅 Обираю {show} 💋", callback_data=f'date_{full}')] for full, show in dates
         ]
         keyboard.append([InlineKeyboardButton("⬅️ Назад до процедур", callback_data='back_to_procedure')])
         await query.edit_message_text(
