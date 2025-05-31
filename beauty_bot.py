@@ -105,6 +105,7 @@ def init_db():
               """)
 
     # --- Таблиця записів (bookings) ---
+    # --- Таблиця записів (bookings) ---
     c.execute("""
               CREATE TABLE IF NOT EXISTS bookings
               (
@@ -117,6 +118,10 @@ def init_db():
                   INTEGER,
                   client_id
                   INTEGER,
+                  name
+                  TEXT,
+                  phone
+                  TEXT,
                   procedure
                   TEXT,
                   date
