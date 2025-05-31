@@ -1491,13 +1491,29 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if query.data.startswith("delday_"):
-        date = query.data.replace("delday_", "")  # тут вже "31.05.2024"
-        conn = sqlite3.connect('appointments.db')
-        c = conn.cursor()
-        c.execute("INSERT INTO deleted_days (date) VALUES (?)", (date,))
-        conn.commit()
-        conn.close()
-        # Показати користувачу коротко:
+        date = query.data.replace("delday_", "")  # очікується "31.05.2024"
+
+        # Перевірка формату дати
+        try:
+            datetime.strptime(date, "%d.%m.%Y")
+        except ValueError:
+            await query.edit_message_text("⚠️ Помилка: невірний формат дати.")
+            return
+
+        try:
+            # Використання with + timeout = уникнення блокування
+            with sqlite3.connect('appointments.db', timeout=5) as conn:
+                c = conn.cursor()
+                c.execute("INSERT INTO deleted_days (date) VALUES (?)", (date,))
+                conn.commit()
+        except sqlite3.IntegrityError:
+            await query.edit_message_text("⚠️ Цей день уже зроблено вихідним.")
+            return
+        except sqlite3.OperationalError:
+            await query.edit_message_text("🚧 База даних тимчасово заблокована. Спробуйте ще раз пізніше.")
+            return
+
+        # Показати коротку дату
         date_short = datetime.strptime(date, "%d.%m.%Y").strftime("%d.%m")
         await query.edit_message_text(
             f"❌ День {date_short} зроблено вихідним і записів не буде.",
