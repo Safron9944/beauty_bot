@@ -239,8 +239,7 @@ async def admin_service_handler(update: Update, context: ContextTypes.DEFAULT_TY
     keyboard = [
         [InlineKeyboardButton("🗓️ Керування графіком", callback_data="manage_schedule")],
         [InlineKeyboardButton("💸 Редагувати прайс", callback_data="edit_price")],
-        [InlineKeyboardButton("📊 Статистика", callback_data="admin_stats")],
-        [InlineKeyboardButton("📈 Статистика за період", callback_data="stats_by_period")],
+        [InlineKeyboardButton("📊 Статистика", callback_data="admin_stats")],  # Тільки одна кнопка!
         [InlineKeyboardButton("💸 Витрати", callback_data="expenses_service")],
         [InlineKeyboardButton("👥 Клієнти", callback_data="clients_service")],
         [InlineKeyboardButton("⬅️ Головне меню", callback_data="back_to_menu")]
@@ -1199,6 +1198,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await show_clients_list(update, context)
         return
 
+    if query.data == "expense_add":
+        context.user_data['step'] = 'expense_add_date'
+        await query.edit_message_text(
+            "Введіть дату витрати (дд.мм.рррр) або 'сьогодні':",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("⬅️ Назад", callback_data="expenses_service")]
+            ])
+        )
+        return
+
     if query.data == 'edit_schedule':
         await edit_schedule_handler(update, context)
         return
@@ -1211,6 +1220,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         text = "💸 *Меню витрат*\nОберіть дію:"
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+        return
+
+    if query.data == "expense_add":
+        context.user_data["add_expense_step"] = "date"
+        await query.edit_message_text(
+            "Введіть дату витрати (дд.мм.рррр) або напишіть 'сьогодні':",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("⬅️ Назад", callback_data="expenses_service")]
+            ])
+        )
         return
 
     if query.data == "stats_by_period":
@@ -1767,9 +1786,6 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ))
         return
 
-    # --- СТАРТ РЕДАГУВАННЯ НОТАТКИ ---
-    # --- СТАРТ РЕДАГУВАННЯ НОТАТКИ ---
-
 
     # --- ЗБЕРЕЖЕННЯ ОНОВЛЕНОЇ НОТАТКИ ---
 
@@ -1948,18 +1964,19 @@ async def send_reminder(user_id, procedure, date, time, mode="day"):
         )
     except Exception as e:
         print(f"Не вдалося надіслати нагадування: {e}")
-async def admin_stats_handler(update, context):
+async def admin_stats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [InlineKeyboardButton("За сьогодні", callback_data='stats_today')],
-        [InlineKeyboardButton("За тиждень", callback_data='stats_week')],
-        [InlineKeyboardButton("За місяць", callback_data='stats_month')],
-        [InlineKeyboardButton("⬅️ Адмін-сервіс", callback_data="admin_service")]
+        [
+            InlineKeyboardButton("За сьогодні", callback_data="stats_today"),
+            InlineKeyboardButton("За тиждень", callback_data="stats_week"),
+            InlineKeyboardButton("За місяць", callback_data="stats_month"),
+        ],
+        [InlineKeyboardButton("За період", callback_data="stats_by_period")],
+        [InlineKeyboardButton("⬅️ Назад", callback_data="admin_service")],
     ]
     await update.callback_query.edit_message_text(
-        "📊 Яку статистику показати?",
-        reply_markup=InlineKeyboardMarkup(keyboard)
+        "📊 Яку статистику показати?", reply_markup=InlineKeyboardMarkup(keyboard)
     )
-
 
 import calendar
 
