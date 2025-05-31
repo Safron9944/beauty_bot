@@ -1762,23 +1762,39 @@ def main():
     app.add_handler(CallbackQueryHandler(confirm_delete, pattern='^confirm_delete$'))
     app.add_handler(CallbackQueryHandler(cancel_delete, pattern='^cancel_delete$'))
 
+    # --- ConversationHandler для умов та нотаток ---
     app.add_handler(ConversationHandler(
         entry_points=[
             CallbackQueryHandler(add_condition_start, pattern=r'^add_condition_\d+$'),
-            CallbackQueryHandler(edit_condition_start, pattern=r'^editcond_\d+$')
+            CallbackQueryHandler(edit_condition_start, pattern=r'^editcond_\d+$'),
+            CallbackQueryHandler(edit_note_start, pattern=r'^edit_note_\d+$')  # 🔹 Додано!
         ],
         states={
             ADDING_CONDITION: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_condition)],
             EDITING_CONDITION: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_edited_condition)],
-            EDITING_NOTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_edited_note)]
+            EDITING_NOTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_edited_note)]  # 🔹 Додано!
         },
         fallbacks=[],
     ))
 
     # --- Хендлер редагування нотатки ---
-    app.add_handler(CallbackQueryHandler(edit_note_start, pattern=r'^edit_note_\d+$'))
+    # --- Хендлери умов ---
+    app.add_handler(ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(add_condition_start, pattern=r'^add_condition_\d+$'),
+            CallbackQueryHandler(edit_condition_start, pattern=r'^editcond_\d+$'),
+            CallbackQueryHandler(edit_note_start, pattern=r'^edit_note_\d+$')  # 👈 додали сюди
+        ],
+        states={
+            ADDING_CONDITION: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_condition)],
+            EDITING_CONDITION: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_edited_condition)],
+            EDITING_NOTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_edited_note)]  # 👈 і сюди
+        },
+        fallbacks=[]
+    ))
 
     app.run_polling()
+
 
 if __name__ == "__main__":
     main()
