@@ -1474,30 +1474,45 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(msg, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
         return
     if query.data == 'back_to_procedure':
-        # Для адміна — повернення до вибору процедур клієнта
         client_id = context.user_data.get('booking_client_id')
-        if not client_id:
-            # На випадок, якщо контекст не збережено — можна вивести помилку або повернутись до головного меню
+        if client_id:
+            # Показуємо процедури для конкретного клієнта (адмін)
+            with sqlite3.connect('appointments.db') as conn:
+                c = conn.cursor()
+                c.execute("SELECT name FROM clients WHERE id=?", (client_id,))
+                row = c.fetchone()
+            name = row[0] if row else "Невідомий"
+            keyboard = [
+                [InlineKeyboardButton("✨ Корекція брів (ідеальна форма)", callback_data='proc_brows')],
+                [InlineKeyboardButton("🎨 Фарбування + корекція брів", callback_data='proc_tint_brows')],
+                [InlineKeyboardButton("🌟 Ламінування брів (WOW-ефект)", callback_data='proc_lam_brows')],
+                [InlineKeyboardButton("👁️ Ламінування вій (виразний погляд)", callback_data='proc_lam_lashes')],
+                [InlineKeyboardButton("⬅️ Назад до картки клієнта", callback_data=f'client_{client_id}')]
+            ]
             await query.edit_message_text(
-                "Помилка: Клієнт не знайдений. Спробуйте ще раз або поверніться до головного меню.")
-            return
-        with sqlite3.connect('appointments.db') as conn:
-            c = conn.cursor()
-            c.execute("SELECT name FROM clients WHERE id=?", (client_id,))
-            row = c.fetchone()
-        name = row[0] if row else "Невідомий"
-        keyboard = [
-            [InlineKeyboardButton("✨ Корекція брів (ідеальна форма)", callback_data='proc_brows')],
-            [InlineKeyboardButton("🎨 Фарбування + корекція брів", callback_data='proc_tint_brows')],
-            [InlineKeyboardButton("🌟 Ламінування брів (WOW-ефект)", callback_data='proc_lam_brows')],
-            [InlineKeyboardButton("👁️ Ламінування вій (виразний погляд)", callback_data='proc_lam_lashes')],
-            [InlineKeyboardButton("⬅️ Назад до картки клієнта", callback_data=f'client_{client_id}')]
-        ]
-        await query.edit_message_text(
-            f"Оберіть процедуру для запису клієнта {name}:",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+                f"Оберіть процедуру для запису клієнта {name}:",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+        else:
+            # Звичайний користувач — показуємо просто процедури
+            if 'booking_client_id' in context.user_data:
+                del context.user_data['booking_client_id']
+            keyboard = [
+                [InlineKeyboardButton("✨ Корекція брів (ідеальна форма)", callback_data='proc_brows')],
+                [InlineKeyboardButton("🎨 Фарбування + корекція брів", callback_data='proc_tint_brows')],
+                [InlineKeyboardButton("🌟 Ламінування брів (WOW-ефект)", callback_data='proc_lam_brows')],
+                [InlineKeyboardButton("👁️ Ламінування вій (виразний погляд)", callback_data='proc_lam_lashes')],
+                [InlineKeyboardButton("⬅️ Головне меню", callback_data='back_to_menu')]
+            ]
+            await query.edit_message_text(
+                "✨ Обери свою *бʼюті-процедуру*!\n"
+                "Познач ту, яка надихає найбільше — або натискай ⬅️ щоб повернутись до головного меню 🌈💖\n\n"
+                "Обіцяю, твоя краса засяє ще яскравіше! 🫶",
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode="Markdown"
+            )
         return
+
     if query.data.startswith("client_book_"):
         try:
             print("==> [client_book_] step before:", context.user_data.get('step'))
@@ -1519,7 +1534,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 [InlineKeyboardButton("👁️ Ламінування вій (виразний погляд)", callback_data='proc_lam_lashes')],
                 [InlineKeyboardButton("⬅️ Назад до картки клієнта", callback_data=f'client_{client_id}')]
             ]
-            # ось тут ти відправляєш повідомлення, і тільки тут створюй result:
             result = await context.bot.send_message(
                 chat_id=query.message.chat.id,
                 text=f"Оберіть процедуру для запису клієнта {name}:",
