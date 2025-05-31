@@ -1640,9 +1640,10 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         time = context.user_data.get('time')
         user_id = update.effective_user.id
 
+        # Перевірка: мінімум три частини — ім'я, прізвище, телефон
         parts = text.strip().split()
         if len(parts) < 3:
-            await update.message.reply_text("⚠️ Введіть як у прикладі: *Ім'я Прізвище +380XXXXXXXXX*",
+            await update.message.reply_text("⚠️ Введіть як у прикладі: *Ольга Чарівна +380680566881*",
                                             parse_mode="Markdown")
             return
 
@@ -1661,18 +1662,13 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             conn = sqlite3.connect('appointments.db')
             c = conn.cursor()
-            # Перевіряємо чи вже є такий клієнт за телефоном або ПІБ
-            c.execute("SELECT id FROM clients WHERE phone = ? OR name = ?", (phone, name))
+            # Шукаємо клієнта по телефону
+            c.execute("SELECT id FROM clients WHERE phone = ?", (phone,))
             result = c.fetchone()
 
             if result:
                 client_id = result[0]
-                await update.message.reply_text(
-                    "Клієнт з такими даними вже існує! Виберіть інші дані або зверніться до майстра.")
-                conn.close()
-                # Покажемо картку клієнта:
-                await show_client_card(update, context, client_id)
-                return
+                # Якщо клієнт є — просто додаємо новий запис для нього
             else:
                 now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 c.execute(
@@ -1680,7 +1676,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     (name, phone, user_id, "", now, now))
                 client_id = c.lastrowid
 
-            # Додати запис
+            # Додаємо новий запис для клієнта (завжди — і якщо новий, і якщо існує)
             c.execute(
                 "INSERT INTO bookings (user_id, client_id, procedure, date, time, status, note) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (user_id, client_id, procedure, date, time, "Очікує підтвердження", ""))
