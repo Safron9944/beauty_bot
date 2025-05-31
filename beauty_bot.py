@@ -1744,7 +1744,7 @@ def main():
             EDITING_NOTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_edited_note)]
         },
         fallbacks=[],
-        per_message=True  # 🔹 ВИРІШУЄ ПОПЕРЕДЖЕННЯ
+        per_message=False  # ⬅️ або просто не вказуй — це дефолт
     ))
 
     # --- Хендлер редагування нотатки ---
