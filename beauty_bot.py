@@ -1542,8 +1542,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await clients_top_handler(update, context)
         return
     if query.data.startswith("client_"):
-        client_id = int(query.data.replace("client_", ""))
-        await show_client_card(update, context, client_id)
+        # Очищаємо значення після "client_"
+        client_data = query.data.replace("client_", "")
+
+        try:
+            # Перевіряємо, чи client_data - це ціле число
+            client_id = int(client_data)
+            await show_client_card(update, context, client_id)
+        except ValueError:
+            # Якщо це не число, відправляємо повідомлення про помилку
+            await query.edit_message_text("Невірний формат даних клієнта.")
         return
     if query.data == "client_add":
         await client_add_handler(update, context)
