@@ -48,10 +48,16 @@ def get_available_dates(days_ahead=7):
     print(f"DEBUG | Сьогодні: {today.strftime('%d.%m.%Y')}")
     print(f"DEBUG | Вихідні дні: {deleted}")
 
-    for i in range(days_ahead):
+    i = 0
+    max_lookahead = 30  # Обмеження, щоб не зависнути, якщо мало робочих днів
+    checked_days = 0
+
+    while len(dates) < days_ahead and checked_days < max_lookahead:
         d = today + timedelta(days=i)
         full_date = d.strftime("%d.%m.%Y")
         show_date = d.strftime("%d.%m")
+        checked_days += 1
+        i += 1
 
         if full_date in deleted:
             print(f"DEBUG | {full_date} — пропущено, бо вихідний")
@@ -100,6 +106,7 @@ def get_available_dates(days_ahead=7):
 
     print(f"DEBUG | Повертаємо дати: {[d[0] for d in dates]}")
     return dates
+
 
 
 
