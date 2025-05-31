@@ -1814,27 +1814,6 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_step = context.user_data.get('step')
     text = update.message.text
 
-    # --- 1. Перевірка кроку ідентифікації за телефоном ---
-    if user_step == 'identify_by_phone':
-        phone = update.message.text.strip()
-        conn = sqlite3.connect('appointments.db')
-        c = conn.cursor()
-        c.execute("SELECT id FROM clients WHERE phone=?", (phone,))
-        row = c.fetchone()
-        if row:
-            client_id = row[0]
-            user_id = update.effective_user.id
-            # Оновлюємо user_id у клієнті
-            c.execute("UPDATE clients SET user_id=? WHERE id=?", (user_id, client_id))
-            # Оновлюємо user_id у всіх його записах
-            c.execute("UPDATE bookings SET user_id=? WHERE client_id=?", (user_id, client_id))
-            conn.commit()
-            await update.message.reply_text("✅ Ви успішно ідентифіковані! Тепер усі ваші записи будуть доступні через бот.")
-        else:
-            await update.message.reply_text("❌ Не знайдено клієнта з таким номером. Перевірте номер або зверніться до майстра.")
-        conn.close()
-        context.user_data['step'] = None
-        return
 
     # --- 2. Додавання нового клієнта ---
     if context.user_data.get('client_add'):
