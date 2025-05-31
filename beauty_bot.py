@@ -593,25 +593,36 @@ async def client_add_text_handler(update: Update, context: ContextTypes.DEFAULT_
         if note.lower() == 'пропустити':
             note = ""
         context.user_data['client_add']['note'] = note
-        # Додаємо в БД
+        # ---- Ось тут перевірка на дублі ----
+        name = context.user_data['client_add']['name']
+        phone = context.user_data['client_add']['phone']
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
+        c.execute("SELECT id FROM clients WHERE phone = ? OR name = ?", (phone, name))
+        duplicate = c.fetchone()
+        if duplicate:
+            await update.message.reply_text("Клієнт з таким телефоном або ПІБ вже існує! Ось його картка:")
+            await show_client_card(update, context, duplicate[0])
+            conn.close()
+            context.user_data.pop('client_add', None)
+            return
+        # ------------------------------------
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         try:
             c.execute(
                 "INSERT INTO clients (name, phone, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-                (context.user_data['client_add']['name'], context.user_data['client_add']['phone'], note, now, now)
+                (name, phone, note, now, now)
             )
             conn.commit()
             client_id = c.lastrowid
             await update.message.reply_text("Клієнта додано! Ось його картка:")
-            # Важливо: показуємо картку через send_message, бо після додавання update.message доступний завжди
             await show_client_card(update, context, client_id)
         except sqlite3.IntegrityError:
             await update.message.reply_text("Клієнт із цим телефоном вже існує!")
         conn.close()
         context.user_data.pop('client_add', None)
         return
+
 
 async def client_search_start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop('client_add', None)   # Важливо!
@@ -686,6 +697,7 @@ async def show_client_card(update, context, client_id):
 
     # --- Кнопки ---
     keyboard = [
+        [InlineKeyboardButton("📅 Записати на процедуру", callback_data=f"client_book_{client_id}")],
         [InlineKeyboardButton("➕ Додати умову", callback_data=f"addcond_{client_id}")],
         [InlineKeyboardButton("📋 Всі умови", callback_data=f"listcond_{client_id}")],
         [InlineKeyboardButton("✏️ Змінити нотатку", callback_data=f"editnote_{client_id}")],
@@ -1622,30 +1634,45 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_step == 'get_fullinfo':
         print("==> [get_fullinfo] Вхід")
         print("==> [get_fullinfo] text:", text)
-        context.user_data['fullinfo'] = text
 
         procedure = context.user_data.get('procedure')
         date = context.user_data.get('date')
         time = context.user_data.get('time')
-        print("==> [get_fullinfo] Зібрано:", procedure, date, time)
-
-        fullinfo = context.user_data.get('fullinfo')
         user_id = update.effective_user.id
-        try:
-            name, phone = [s.strip() for s in fullinfo.split(',', 1)]
-        except Exception:
-            name, phone = fullinfo.strip(), "N/A"
+
+        parts = text.strip().split()
+        if len(parts) < 3:
+            await update.message.reply_text("⚠️ Введіть як у прикладі: *Ім'я Прізвище +380XXXXXXXXX*",
+                                            parse_mode="Markdown")
+            return
+
+        phone = parts[-1]
+        name = " ".join(parts[:-1])
+
+        import re
+        if not re.match(r'^\+380\d{9}$', phone):
+            await update.message.reply_text("⚠️ Телефон має бути у форматі +380XXXXXXXXX", parse_mode="Markdown")
+            return
+
+        if len(name.split()) < 2:
+            await update.message.reply_text("⚠️ Вкажіть, будь ласка, і *ім'я*, і *прізвище*!", parse_mode="Markdown")
+            return
 
         try:
             conn = sqlite3.connect('appointments.db')
             c = conn.cursor()
-
-            # Перевірити чи клієнт існує
-            c.execute("SELECT id FROM clients WHERE phone = ?", (phone,))
+            # Перевіряємо чи вже є такий клієнт за телефоном або ПІБ
+            c.execute("SELECT id FROM clients WHERE phone = ? OR name = ?", (phone, name))
             result = c.fetchone()
 
             if result:
                 client_id = result[0]
+                await update.message.reply_text(
+                    "Клієнт з такими даними вже існує! Виберіть інші дані або зверніться до майстра.")
+                conn.close()
+                # Покажемо картку клієнта:
+                await show_client_card(update, context, client_id)
+                return
             else:
                 now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 c.execute(
@@ -1661,7 +1688,16 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             conn.commit()
             conn.close()
 
-            print("✅ [Запис створено] ID:", booking_id)
+            # Повідомлення користувачу
+            keyboard = [
+                [InlineKeyboardButton("✅ Підтвердити", callback_data=f"confirm_{booking_id}"),
+                 InlineKeyboardButton("❌ Відмінити", callback_data=f"cancel_{booking_id}")]
+            ]
+            await update.message.reply_text(
+                f"🎉 Ти записана на *{procedure}* {date} о {time}! Я вже чекаю зустрічі з тобою 💖",
+                parse_mode="Markdown",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
 
         except Exception as e:
             print("❌ [SQL ERROR]:", e)
