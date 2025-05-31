@@ -269,7 +269,7 @@ async def edit_schedule_handler(update: Update, context: ContextTypes.DEFAULT_TY
         dates.append(date_str)
     keyboard = [
         [InlineKeyboardButton(
-            f"🗓️ {datetime.strptime(date, '%d.%m.%Y').strftime('%d.%m')} {'✅' if date in scheduled_dates else '➕'}",
+            f"🗓️ {datetime.strptime(date, '%d.%m.%Y').strftime('%d.%m.%Y')} {'✅' if date in scheduled_dates else '➕'}",
             callback_data=f'edit_day_{date}'
         )]
         for date in dates
