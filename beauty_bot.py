@@ -50,8 +50,6 @@ def get_available_dates(days_ahead=7):
         show_date = d.strftime("%d.%m")
         if full_date in deleted:
             continue
-        if d < today:
-            continue
 
         # Години за розкладом
         conn = sqlite3.connect('appointments.db')
@@ -87,13 +85,11 @@ def get_available_dates(days_ahead=7):
                     filtered_times.append(t)
             free_times = filtered_times
 
-        # Додаємо дату тільки якщо є вільні години і дата не в минулому
-        if free_times and d >= today:
-            print(f"Додаємо дату: {full_date} з вільними слотами: {free_times}")
+        # Додаємо дату тільки якщо є вільні години
+        if free_times:
             dates.append((full_date, show_date))
-        else:
-            print(f"Пропущено дату: {full_date}, free_times: {free_times}, today: {today}, d: {d}")
     return dates
+
 
 
 
