@@ -952,38 +952,46 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"Callback Data: {query.data}")
 
     if query.data.startswith('proc_'):
-        proc_map = {
-            'proc_brows': 'Корекція брів (ідеальна форма)',
-            'proc_tint_brows': 'Фарбування + корекція брів',
-            'proc_lam_brows': 'Ламінування брів (WOW-ефект)',
-            'proc_lam_lashes': 'Ламінування вій (виразний погляд)'
-        }
-        context.user_data['procedure'] = proc_map[query.data]
-        context.user_data['step'] = 'book_date'
-        today = datetime.now().date()
-        dates = []
-        conn = sqlite3.connect('appointments.db')
-        c = conn.cursor()
-        c.execute("SELECT date FROM deleted_days")
-        deleted = {row[0] for row in c.fetchall()}
-        conn.close()
-        for i in range(7):
-            d = today + timedelta(days=i)
-            full_date = d.strftime("%d.%m.%Y")  # ТУТ ПОВНА ДАТА для логіки
-            show_date = d.strftime("%d.%m")  # ТУТ КОРОТКА ДАТА для користувача
-            if full_date not in deleted:
-                dates.append((full_date, show_date))
-        if not dates:
-            await query.edit_message_text("⛔ Немає доступних днів для запису. Зверніться до майстра!")
-            return
-        keyboard = [
-            [InlineKeyboardButton(f"📅 Обираю {show} 💋", callback_data=f'date_{full}')] for full, show in dates
-        ]
-        keyboard.append([InlineKeyboardButton("⬅️ Назад до процедур", callback_data='back_to_procedure')])
-        await query.edit_message_text(
-            "🌸 Який день підходить для запису? Обирай дату!",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        try:
+            proc_map = {
+                'proc_brows': 'Корекція брів (ідеальна форма)',
+                'proc_tint_brows': 'Фарбування + корекція брів',
+                'proc_lam_brows': 'Ламінування брів (WOW-ефект)',
+                'proc_lam_lashes': 'Ламінування вій (виразний погляд)'
+            }
+            context.user_data['procedure'] = proc_map[query.data]
+            context.user_data['step'] = 'book_date'
+            today = datetime.now().date()
+            dates = []
+            conn = sqlite3.connect('appointments.db')
+            c = conn.cursor()
+            c.execute("SELECT date FROM deleted_days")
+            deleted = {row[0] for row in c.fetchall()}
+            conn.close()
+            print(f"Deleted days from DB: {deleted}")  # DEBUG
+            for i in range(7):
+                d = today + timedelta(days=i)
+                full_date = d.strftime("%d.%m.%Y")
+                show_date = d.strftime("%d.%m")
+                print(f"Checking date {full_date} not in deleted")  # DEBUG
+                if full_date not in deleted:
+                    dates.append((full_date, show_date))
+            print(f"Available dates: {dates}")  # DEBUG
+            if not dates:
+                await query.edit_message_text("⛔ Немає доступних днів для запису. Зверніться до майстра!")
+                return
+            keyboard = [
+                [InlineKeyboardButton(f"📅 Обираю {show} 💋", callback_data=f'date_{full}')] for full, show in dates
+            ]
+            keyboard.append([InlineKeyboardButton("⬅️ Назад до процедур", callback_data='back_to_procedure')])
+            await query.edit_message_text(
+                "🌸 Який день підходить для запису? Обирай дату!",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+        except Exception as e:
+            await query.edit_message_text(f"Сталася помилка: {e}")
+            import traceback
+            print(traceback.format_exc())
         return
 
     if query.data.startswith('date_'):
