@@ -1548,7 +1548,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             # Перевіряємо, чи client_data - це ціле число
             client_id = int(client_data)
-            await show_client_card(update, context, client_id)
+            await show_client_card(update, context, client_id)  # Передаємо client_id в show_client_card
         except ValueError:
             # Якщо це не число, відправляємо повідомлення про помилку
             await query.edit_message_text("Невірний формат даних клієнта.")
@@ -1876,9 +1876,17 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # --- 3. Пошук клієнта ---
-    if context.user_data.get('client_search'):
-        await client_search_text_handler(update, context)
+    if query.data == "client_search_start":
+        await update.message.reply_text("Введіть номер телефону клієнта для пошуку.")
+        context.user_data['step'] = 'search_phone'
         return
+    
+    if context.user_data.get('step') == 'search_phone':
+        phone = update.message.text.strip()
+        await show_client_card_by_phone(update, context, phone)
+        context.user_data['step'] = None
+        return
+
     if context.user_data.get('step') == 'edit_components':
         client_id = context.user_data.get('edit_components_id')
         new_components = update.message.text.strip()
@@ -1962,27 +1970,6 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ... Далі можеш залишати інші блоки, якщо вони є ...
 
-
-    # --- Пошук клієнта ---
-    if context.user_data.get('client_search'):
-        await client_search_text_handler(update, context)
-        return
-
-    if context.user_data.get('step') == 'edit_note':
-        note = update.message.text.strip()
-        client_id = context.user_data.get('edit_note_client_id')
-        if client_id:
-            conn = sqlite3.connect('appointments.db')
-            c = conn.cursor()
-            c.execute("UPDATE clients SET note=? WHERE id=?", (note, client_id))
-            conn.commit()
-            conn.close()
-            await update.message.reply_text("Примітку оновлено!")
-        else:
-            await update.message.reply_text("Клієнта не знайдено.")
-        context.user_data['step'] = None
-        context.user_data['edit_note_client_id'] = None
-        return
 
     if context.user_data.get('step') == 'stats_period_start':
         date_start = update.message.text.strip()
