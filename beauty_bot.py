@@ -1385,12 +1385,19 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             chosen.append(time)
         context.user_data['chosen_times'] = chosen
+
         # Сформуємо кнопки для всіх стандартних годин
-        weekday = datetime.strptime(context.user_data['edit_day'] + f".{datetime.now().year}", "%d.%m.%Y").weekday()
+        try:
+            weekday = datetime.strptime(context.user_data['edit_day'], "%d.%m.%Y").weekday()
+        except ValueError:
+            await query.edit_message_text("❌ Невірний формат дати. Спробуйте ще раз або перевірте формат.")
+            return
+
         if weekday < 5:
             times = [f"{h:02d}:00" for h in range(14, 19)]
         else:
             times = [f"{h:02d}:00" for h in range(11, 19)]
+
         keyboard = []
         for t in times:
             mark = "✅" if t in chosen else "☐"
@@ -1398,6 +1405,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard.append([InlineKeyboardButton("Додати вручну", callback_data="custom_time")])
         keyboard.append([InlineKeyboardButton("Зберегти", callback_data="save_times")])
         keyboard.append([InlineKeyboardButton("⬅️ Дні", callback_data="edit_schedule")])
+
         selected = ', '.join(chosen) if chosen else "нічого не вибрано"
         await query.edit_message_text(
             f"Вибрані години: {selected}\nНатискай на час, щоб додати або прибрати його зі списку, або введи свій.",
