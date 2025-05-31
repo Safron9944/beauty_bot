@@ -1999,6 +1999,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Чистий прибуток: {profit} грн"
         )
         await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
+        return
 
     # --- Обробка введення ПІБ та телефону для запису ---
     if user_step == 'get_fullinfo':
