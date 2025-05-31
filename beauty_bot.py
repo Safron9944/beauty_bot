@@ -209,7 +209,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "— глянути Instagram або написати майстру\n\n"
         "🌸 Краса починається тут!"
     )
-    # Головне: не відправляй два повідомлення!
     if hasattr(update, "callback_query") and update.callback_query:
         await update.callback_query.edit_message_text(
             welcome, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown"
@@ -220,43 +219,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
-    # Відправляємо меню ТІЛЬКИ ОДНИМ СПОСОБОМ — або edit_message_text, або reply_text!
-    if getattr(update, "callback_query", None):
-        await update.callback_query.edit_message_text(
-            welcome,
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode="Markdown"
-        )
-    elif getattr(update, "message", None):
-        await update.message.reply_text(
-            welcome,
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode="Markdown"
-        )
-
-
-    # Далі твій старий код меню:
-    keyboard = [
-        [InlineKeyboardButton("💎 Записатися на процедуру", callback_data='book')],
-        [InlineKeyboardButton("🗓️ Мої записи", callback_data='check_booking')],
-        [InlineKeyboardButton("💰 Прайс", callback_data='show_price')],
-        [InlineKeyboardButton(f"👩‍🎨 Ваш майстер: {MASTER_NAME}", callback_data='master_phone')]
-    ]
-    if update.effective_user.id in ADMIN_IDS:
-        keyboard.append([InlineKeyboardButton("⚙️ Адмін-сервіс", callback_data='admin_service')])
-    welcome = (
-        "✨ *Beauty-бот* зустрічає тебе з посмішкою! Тут кожна красуня знаходить свій стиль і настрій 💖\n\n"
-        "Обирай, що хочеш:\n"
-        "— записатися на процедуру\n"
-        "— подивитися свої записи\n"
-        "— знайти салон на мапі\n"
-        "— глянути Instagram або написати майстру\n\n"
-        "🌸 Краса починається тут!"
-    )
-    if hasattr(update, "message") and update.message:
-        await update.message.reply_text(welcome, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
-    else:
-        await update.callback_query.edit_message_text(welcome, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
 # --- АДМІН СЕРВІС ---
 async def manage_schedule_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
