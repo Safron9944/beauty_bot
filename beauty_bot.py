@@ -580,14 +580,7 @@ async def client_add_text_handler(update: Update, context: ContextTypes.DEFAULT_
         return
     if data['step'] == 'phone':
         context.user_data['client_add']['phone'] = update.message.text.strip()
-        context.user_data['client_add']['step'] = 'note'
-        await update.message.reply_text("Додайте примітку (або напишіть 'пропустити'):")
-        return
-    if data['step'] == 'note':
-        note = update.message.text.strip()
-        if note.lower() == 'пропустити':
-            note = ""
-        context.user_data['client_add']['note'] = note
+        context.user_data['client_add']['note'] = ""   # Примітка одразу порожня
         # ---- Ось тут перевірка на дублі ----
         name = context.user_data['client_add']['name']
         phone = context.user_data['client_add']['phone']
@@ -601,12 +594,11 @@ async def client_add_text_handler(update: Update, context: ContextTypes.DEFAULT_
             conn.close()
             context.user_data.pop('client_add', None)
             return
-        # ------------------------------------
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         try:
             c.execute(
                 "INSERT INTO clients (name, phone, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-                (name, phone, note, now, now)
+                (name, phone, "", now, now)
             )
             conn.commit()
             client_id = c.lastrowid
@@ -617,6 +609,8 @@ async def client_add_text_handler(update: Update, context: ContextTypes.DEFAULT_
         conn.close()
         context.user_data.pop('client_add', None)
         return
+
+
 
 
 async def client_search_start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
