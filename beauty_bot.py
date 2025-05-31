@@ -654,60 +654,51 @@ async def show_client_card(update, context, client_id):
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
 
-    # Отримуємо основну інформацію про клієнта
+    # --- Отримуємо інформацію про клієнта ---
     c.execute("SELECT name, phone, note FROM clients WHERE id=?", (client_id,))
     result = c.fetchone()
     if not result:
-        await update.message.reply_text("Клієнта не знайдено.")
+        await context.bot.send_message(chat_id=update.effective_user.id, text="❌ Клієнта не знайдено.")
         conn.close()
         return
 
     name, phone, note = result
 
-    # Дата останнього візиту
+    # --- Дата останнього запису ---
     c.execute("SELECT MAX(date) FROM bookings WHERE client_id=?", (client_id,))
     last_visit = c.fetchone()[0] or "—"
 
-    # Отримуємо останній статус запису (не обов’язково, але можеш показати)
-    c.execute("""
-        SELECT status FROM bookings 
-        WHERE client_id=? ORDER BY date DESC, time DESC LIMIT 1
-    """, (client_id,))
-    status_row = c.fetchone()
-    status = status_row[0] if status_row else "—"
-
-    # Особливі умови
+    # --- Особливі умови ---
     c.execute("SELECT condition_text FROM client_conditions WHERE client_id=?", (client_id,))
     conditions = [row[0] for row in c.fetchall()]
     special_conditions = '\n'.join(f"— {c}" for c in conditions) if conditions else "—"
 
     conn.close()
 
-    # Текст картки
-    txt = (
-        f"📂 *КЛІЄНТ #{client_id}*\n\n"
-        f"👤 *Ім’я:* {name}\n"
-        f"📞 *Телефон:* {phone}\n"
-        f"📅 *Останній візит:* {last_visit}\n"
-        f"🔖 *Статус:* {status}\n\n"
-        f"⚠️ *Особливі умови:*\n{special_conditions}\n\n"
-        f"📝 *Нотатка:*\n{note if note else '—'}"
+    # --- Текст повідомлення ---
+    text = (
+        f"👤 *{name}*\n"
+        f"📞 {phone}\n"
+        f"📅 Останній візит: {last_visit}\n"
+        f"⚠️ Умови:\n{special_conditions}\n\n"
+        f"📝 Примітка:\n{note or '—'}"
     )
 
-    # Кнопки керування
+    # --- Кнопки ---
     keyboard = [
-        [InlineKeyboardButton("➕ Додати умову", callback_data=f"add_condition_{client_id}"),
-         InlineKeyboardButton("⚙️ Умови", callback_data=f"manage_conditions_{client_id}")],
-        [InlineKeyboardButton("✏️ Редагувати нотатку", callback_data=f"edit_note_{client_id}")],
-        [InlineKeyboardButton("⬅️ Назад", callback_data="clients_service")]
+        [InlineKeyboardButton("➕ Додати умову", callback_data=f"addcond_{client_id}")],
+        [InlineKeyboardButton("📋 Всі умови", callback_data=f"listcond_{client_id}")],
+        [InlineKeyboardButton("✏️ Змінити нотатку", callback_data=f"editnote_{client_id}")],
+        [InlineKeyboardButton("⬅️ Назад", callback_data="back_to_clients")]
     ]
 
     await context.bot.send_message(
         chat_id=update.effective_user.id,
-        text=txt,
+        text=text,
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
+
 
 
 async def show_client_card_by_phone(update, context, phone):
@@ -1763,12 +1754,19 @@ def main():
     init_db()
     app = ApplicationBuilder().token(TOKEN).build()
 
+
     # --- Основні хендлери ---
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
 
-    # --- Хендлери умов ---
+    # --- Хендлери картки клієнта ---
+    app.add_handler(CallbackQueryHandler(show_client_card_button, pattern=r'^client_\d+$'))
+    app.add_handler(CallbackQueryHandler(add_condition_start, pattern=r'^addcond_\d+$'))
+    app.add_handler(CallbackQueryHandler(list_conditions, pattern=r'^listcond_\d+$'))
+    app.add_handler(CallbackQueryHandler(edit_note_start, pattern=r'^editnote_\d+$'))
+
+    # --- Хендлери видалення умов ---
     app.add_handler(CallbackQueryHandler(delete_condition, pattern=r'^delcond_\d+$'))
     app.add_handler(CallbackQueryHandler(confirm_delete, pattern='^confirm_delete$'))
     app.add_handler(CallbackQueryHandler(cancel_delete, pattern='^cancel_delete$'))
@@ -1776,9 +1774,9 @@ def main():
     # --- ConversationHandler для умов та нотаток ---
     app.add_handler(ConversationHandler(
         entry_points=[
-            CallbackQueryHandler(add_condition_start, pattern=r'^add_condition_\d+$'),
+            CallbackQueryHandler(add_condition_start, pattern=r'^addcond_\d+$'),
             CallbackQueryHandler(edit_condition_start, pattern=r'^editcond_\d+$'),
-            CallbackQueryHandler(edit_note_start, pattern=r'^edit_note_\d+$')
+            CallbackQueryHandler(edit_note_start, pattern=r'^editnote_\d+$')
         ],
         states={
             ADDING_CONDITION: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_condition)],
@@ -1786,23 +1784,7 @@ def main():
             EDITING_NOTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_edited_note)]
         },
         fallbacks=[],
-        per_message=False  # ⬅️ або просто не вказуй — це дефолт
-    ))
-
-    # --- Хендлер редагування нотатки ---
-    # --- Хендлери умов ---
-    app.add_handler(ConversationHandler(
-        entry_points=[
-            CallbackQueryHandler(add_condition_start, pattern=r'^add_condition_\d+$'),
-            CallbackQueryHandler(edit_condition_start, pattern=r'^editcond_\d+$'),
-            CallbackQueryHandler(edit_note_start, pattern=r'^edit_note_\d+$')  # 👈 додали сюди
-        ],
-        states={
-            ADDING_CONDITION: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_condition)],
-            EDITING_CONDITION: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_edited_condition)],
-            EDITING_NOTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_edited_note)]  # 👈 і сюди
-        },
-        fallbacks=[]
+        per_message=False
     ))
 
     app.run_polling()
