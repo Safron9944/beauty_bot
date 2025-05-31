@@ -1035,12 +1035,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             filtered_times = []
             for t in times:
                 slot_time = datetime.strptime(t, "%H:%M")
-                # Оцінюємо "мінімальний доступний час"
+                # Логіка за хвилинами
                 if now.minute < 30:
-                    min_dt = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=2)
-                else:
                     min_dt = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=3)
-                # Якщо слот ПІЗНІШЕ або рівно мінімальному часу
+                else:
+                    min_dt = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0) + timedelta(hours=2)
                 if slot_time >= min_dt:
                     filtered_times.append(t)
             times = filtered_times
@@ -1053,8 +1052,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn.close()
         free_times = [t for t in times if t not in booked_times]
         if not free_times:
+            keyboard = [
+                [InlineKeyboardButton("⬅️ Назад до календаря", callback_data='back_to_date')]
+            ]
             await query.edit_message_text(
-                "😔 Всі години на цей день вже зайняті або недоступні за часом. Спробуй обрати інший день!")
+                "😔 Всі години на цей день вже зайняті або недоступні за часом. Спробуй обрати інший день!",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
             return
         keyboard = [
             [InlineKeyboardButton(f"🕒 {time} | Моє ідеальне віконце 💖", callback_data=f'time_{time}')]
@@ -1117,8 +1121,63 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text(
                 f"📋 Введіть *ПІБ та номер телефону* через пробіл, наприклад:\n\n"
                 f"`Ольга Чарівна +380961234567`",
+                parse_mode="Markdown",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("⬅️ Назад", callback_data='back_to_time')]
+                ])
+            )
+            return
+
+    if query.data == 'back_to_time':
+        date = context.user_data.get('date')
+        procedure = context.user_data.get('procedure')
+
+        if not date or not procedure:
+            # Якщо немає дати чи процедури, повернути до вибору процедур
+            keyboard = [
+                [InlineKeyboardButton("✨ Корекція брів (ідеальна форма)", callback_data='proc_brows')],
+                [InlineKeyboardButton("🎨 Фарбування + корекція брів", callback_data='proc_tint_brows')],
+                [InlineKeyboardButton("🌟 Ламінування брів (WOW-ефект)", callback_data='proc_lam_brows')],
+                [InlineKeyboardButton("👁️ Ламінування вій (виразний погляд)", callback_data='proc_lam_lashes')],
+                [InlineKeyboardButton("⬅️ Головне меню", callback_data='back_to_menu')]
+            ]
+            await query.edit_message_text(
+                "✨ Обери свою *бʼюті-процедуру*!\n"
+                "Познач ту, яка надихає найбільше — або натискай ⬅️ щоб повернутись до головного меню 🌈💖\n\n"
+                "Обіцяю, твоя краса засяє ще яскравіше! 🫶",
+                reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode="Markdown"
             )
+            return
+
+        # Повертаємось до вибору часу для вибраної дати
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("SELECT times FROM schedule WHERE date = ?", (date,))
+        row = c.fetchone()
+        conn.close()
+
+        if row:
+            times = [t.strip() for t in row[0].split(',')]
+        else:
+            day = datetime.strptime(date + f".{datetime.now().year}", "%d.%m.%Y").weekday()
+            if day < 5:
+                times = [f"{h:02d}:00" for h in range(14, 19)]
+            else:
+                times = [f"{h:02d}:00" for h in range(11, 19)]
+
+        keyboard = [
+            [InlineKeyboardButton(f"🕒 {time} | Моє ідеальне віконце 💖", callback_data=f'time_{time}')]
+            for time in times
+        ]
+        keyboard.append([InlineKeyboardButton("⬅️ Назад до вибору дати", callback_data='back_to_date')])
+
+        await query.edit_message_text(
+            "👑 Час бути зіркою! Обирай ідеальний час ❤️\n"
+            "Хочеш змінити дату? Натискай ⬅️",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return
 
     if query.data == 'back_to_date':
         procedure = context.user_data.get('procedure')
@@ -1494,7 +1553,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode="Markdown"
         )
-        context.user_data.clear()
+        # context.user_data.clear()  # ОКРЕМО ОЧИЩУЙ ПІСЛЯ ЗАВЕРШЕННЯ ЗАПИСУ, а не тут!
         return
 
     if query.data == 'check_booking':
