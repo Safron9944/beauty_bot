@@ -985,7 +985,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             deleted = {row[0] for row in c.fetchall()}
             conn.close()
 
-            # Формуємо список лише днів, де є вільні години
             for i in range(7):
                 d = today + timedelta(days=i)
                 full_date = d.strftime("%d.%m.%Y")
@@ -993,7 +992,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if full_date in deleted:
                     continue
 
-                # --- Години за розкладом ---
+                # Години за розкладом
                 conn = sqlite3.connect('appointments.db')
                 c = conn.cursor()
                 c.execute("SELECT times FROM schedule WHERE date = ?", (full_date,))
@@ -1008,7 +1007,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     else:
                         times = [f"{h:02d}:00" for h in range(11, 19)]
 
-                # --- Заброньовані години ---
+                # Заброньовані години
                 conn = sqlite3.connect('appointments.db')
                 c = conn.cursor()
                 c.execute("SELECT time FROM bookings WHERE date = ?", (full_date,))
@@ -1016,12 +1015,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 conn.close()
                 free_times = [t for t in times if t not in booked_times]
 
+                # Якщо є хоч одна вільна година — додаємо день для вибору
                 if free_times:
                     dates.append((full_date, show_date))
 
             if not dates:
                 await query.edit_message_text("⛔ Немає доступних днів для запису. Зверніться до майстра!")
                 return
+
             keyboard = [
                 [InlineKeyboardButton(f"📅 Обираю {show} 💋", callback_data=f'date_{full}')] for full, show in dates
             ]
@@ -1044,7 +1045,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             context.user_data['step'] = None
 
-        # --- Години за розкладом ---
+        # Години за розкладом
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
         c.execute("SELECT times FROM schedule WHERE date = ?", (date,))
@@ -1065,7 +1066,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             now = datetime.now()
             filtered_times = []
             for t in times:
-                slot_time = datetime.strptime(t, "%H:%M")
+                slot_time = datetime.strptime(t, "%H:%M").time()
                 # Мінімальний час - через 3 години від поточного
                 if now.minute < 30:
                     min_dt = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=3)
@@ -1075,7 +1076,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     filtered_times.append(t)
             times = filtered_times
 
-        # --- Заброньовані години ---
+        # Заброньовані години
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
         c.execute("SELECT time FROM bookings WHERE date = ?", (date,))
