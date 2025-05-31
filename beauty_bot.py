@@ -642,6 +642,7 @@ async def clients_top_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown"
     )
 
+
 async def client_add_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop('client_search', None)  # Важливо!
     context.user_data['client_add'] = {'step': 'name'}
@@ -651,6 +652,7 @@ async def client_add_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
             [InlineKeyboardButton("⬅️ Назад", callback_data="clients_service")]
         ])
     )
+
 
 async def client_add_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = context.user_data.get('client_add')
@@ -662,14 +664,24 @@ async def client_add_text_handler(update: Update, context: ContextTypes.DEFAULT_
         await update.message.reply_text("Введіть телефон клієнта (наприклад: +380...):")
         return
     if data['step'] == 'phone':
-        context.user_data['client_add']['phone'] = update.message.text.strip()
-        context.user_data['client_add']['note'] = ""   # Примітка одразу порожня
+        phone = update.message.text.strip()
+
+        if not is_valid_phone(phone):
+            await update.message.reply_text("⚠️ Невірний формат номера телефону. Введіть номер у форматі: +380...")
+            return
+
+        context.user_data['client_add']['phone'] = phone
+        context.user_data['client_add']['note'] = ""  # Примітка одразу порожня
         # ---- Ось тут перевірка на дублі ----
         name = context.user_data['client_add']['name']
-        phone = context.user_data['client_add']['phone']
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-        c.execute("SELECT id FROM clients WHERE phone = ? OR name = ?", (phone, name))
+        c.execute("""
+                  SELECT id
+                  FROM clients
+                  WHERE REPLACE(REPLACE(phone, ' ', ''), '-', '') = ?
+                     OR LOWER(REPLACE(name, ' ', '')) = LOWER(REPLACE(?, ' ', ''))
+                  """, (phone, name))
         duplicate = c.fetchone()
         if duplicate:
             await update.message.reply_text("Клієнт з таким телефоном або ПІБ вже існує! Ось його картка:")
@@ -677,6 +689,7 @@ async def client_add_text_handler(update: Update, context: ContextTypes.DEFAULT_
             conn.close()
             context.user_data.pop('client_add', None)
             return
+
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         try:
             c.execute(
@@ -689,11 +702,10 @@ async def client_add_text_handler(update: Update, context: ContextTypes.DEFAULT_
             await show_client_card(update, context, client_id)
         except sqlite3.IntegrityError:
             await update.message.reply_text("Клієнт із цим телефоном вже існує!")
-        conn.close()
+        finally:
+            conn.close()
         context.user_data.pop('client_add', None)
         return
-
-
 
 
 async def client_search_start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -734,12 +746,22 @@ async def show_client_card(update, context, client_id):
     import sqlite3
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
+    # Перевіряємо, чи передано client_id
+    if not client_id:
+        await update.message.reply_text("Клієнта не знайдено.")
+        return
+
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
     c.execute("SELECT name, phone, components FROM clients WHERE id=?", (client_id,))
     row = c.fetchone()
-    name, phone, components = row if row else ("-", "-", "-")
 
+    # Якщо клієнт не знайдений
+    if not row:
+        await update.message.reply_text("Клієнта не знайдено.")
+        return
+
+    name, phone, components = row
     c.execute("SELECT date, procedure FROM bookings WHERE client_id=? ORDER BY date DESC LIMIT 5", (client_id,))
     history = c.fetchall()
     conn.close()
@@ -766,19 +788,12 @@ async def show_client_card(update, context, client_id):
         [InlineKeyboardButton("🔙 Назад", callback_data='back_to_clients')],
     ]
 
-    if hasattr(update, "callback_query") and update.callback_query:
-        await update.callback_query.edit_message_text(
-            card_text,
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode="Markdown"
-        )
-    else:
-        await context.bot.send_message(
-            chat_id=update.effective_user.id,
-            text=card_text,
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode="Markdown"
-        )
+    await update.callback_query.edit_message_text(
+        card_text,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="Markdown"
+    )
+
 
 async def show_client_card_by_phone(update, context, phone):
     import re
@@ -1880,7 +1895,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Введіть номер телефону клієнта для пошуку.")
         context.user_data['step'] = 'search_phone'
         return
-    
+
     if context.user_data.get('step') == 'search_phone':
         phone = update.message.text.strip()
         await show_client_card_by_phone(update, context, phone)
