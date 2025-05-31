@@ -1609,19 +1609,48 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             conn = sqlite3.connect('appointments.db')
             c = conn.cursor()
             c.execute(
-                "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (user_id, name, phone, procedure, date, time, "Очікує підтвердження"))
+                "INSERT INTO bookings (user_id, procedure, date, time, status, note) VALUES (?, ?, ?, ?, ?, ?)",
+                (user_id, procedure, date, time, "Очікує підтвердження", f"{name} / {phone}"))
             booking_id = c.lastrowid
             conn.commit()
             conn.close()
             print("✅ [Запис створено] ID:", booking_id)
         except Exception as e:
             print("❌ [SQL INSERT ERROR]:", e)
+            await update.message.reply_text("❌ Сталася помилка при створенні запису. Спробуйте пізніше.")
+            return
 
+        # Повідомлення користувачу
+        keyboard = [
+            [InlineKeyboardButton("✅ Підтвердити", callback_data=f"confirm_{booking_id}"),
+             InlineKeyboardButton("❌ Відмінити", callback_data=f"cancel_{booking_id}")]
+        ]
+        await update.message.reply_text(
+            f"🎉 Ти записана на *{procedure}* {date} о {time}! Я вже чекаю зустрічі з тобою, ти надихаєш! 💖\n\n"
+            "Якщо хочеш — підтверди чи відміні запис, або запишися ще раз 👑",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
 
+        # Повідомлення адміну
+        try:
+            admin_text = (
+                f"📥 Новий запис:\n"
+                f"ПІБ/Телефон: {name} / {phone}\n"
+                f"Процедура: {procedure}\n"
+                f"Дата: {date} о {time}"
+            )
+            if isinstance(ADMIN_IDS, list):
+                for admin_id in ADMIN_IDS:
+                    await context.bot.send_message(chat_id=admin_id, text=admin_text)
+            else:
+                await context.bot.send_message(chat_id=ADMIN_IDS, text=admin_text)
+        except Exception as e:
+            print("❌ [ADMIN MSG ERROR]:", e)
 
-    else:
-        await update.message.reply_text("Оберіть дію за допомогою кнопок нижче та подаруйте собі красу! 💖")
+        context.user_data.clear()
+        return
+
 
 # --- Нагадування ---
 async def send_reminder(user_id, procedure, date, time, mode="day"):
