@@ -1506,24 +1506,25 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # --- Зберегти вибрані години ---
-    if query.data == "save_times":
+    if query.data == 'save_times':
         day = context.user_data.get('edit_day')
-        times = context.user_data.get('chosen_times', [])
-        times_str = ",".join(times)
+        chosen_times = context.user_data.get('chosen_times', [])
+        # Зберігаємо у базу...
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
-        c.execute("SELECT id FROM schedule WHERE date = ?", (day,))
-        exists = c.fetchone()
-        if exists:
-            c.execute("UPDATE schedule SET times=? WHERE date=?", (times_str, day))
-        else:
-            c.execute("INSERT INTO schedule (date, times) VALUES (?, ?)", (day, times_str))
+        c.execute("UPDATE schedule SET times=? WHERE date=?", (', '.join(chosen_times), day))
         conn.commit()
         conn.close()
-        await query.edit_message_text(f"✅ Для дня {day} встановлено години: {times_str if times_str else 'жодної'}")
+
+        keyboard = [
+            [InlineKeyboardButton("⬅️ До списку днів", callback_data="edit_schedule")],
+            [InlineKeyboardButton("⬅️ Адмін-меню", callback_data="admin_menu")]
+        ]
+        await query.edit_message_text(
+            f"✅ Години для {day} оновлено!",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
         context.user_data['step'] = None
-        context.user_data['edit_day'] = None
-        context.user_data['chosen_times'] = []
         return
 
     # --- Ввести години вручну ---
