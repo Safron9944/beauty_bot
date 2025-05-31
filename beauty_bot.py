@@ -1382,24 +1382,29 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         c.execute("SELECT id, procedure, date, time, status, note FROM bookings WHERE user_id=?", (user_id,))
         rows = c.fetchall()
         conn.close()
+
+        buttons = [
+            [InlineKeyboardButton("⬅️ Назад до меню", callback_data="back_to_menu")]
+        ]
+
         if rows:
+            text = "📝 *Ваші записи:*\n\n"
             for rec in rows:
                 booking_id, procedure, date, time, status, note = rec
                 msg = f"✨ {procedure}\n🗓️ {date} о {time}\nСтатус: *{status}*"
-                # Додаємо примітку тільки якщо вона є
                 if note:
                     msg += f"\n📝 Примітка: _{note}_"
-                buttons = []
-                if status == "Очікує підтвердження":
-                    buttons.append(InlineKeyboardButton("✅ Підтвердити", callback_data=f"confirm_{booking_id}"))
-                    buttons.append(InlineKeyboardButton("❌ Відмінити", callback_data=f"cancel_{booking_id}"))
-                # Додаємо кнопку примітки тільки для адміна
-                if user_id == ADMIN_IDS:
-                    buttons.append(InlineKeyboardButton("📝 Примітка", callback_data=f"note_{booking_id}"))
-                reply_markup = InlineKeyboardMarkup([buttons]) if buttons else None
-                await query.message.reply_text(msg, reply_markup=reply_markup, parse_mode="Markdown")
+                text += msg + "\n\n"
+            await query.edit_message_text(
+                text,
+                reply_markup=InlineKeyboardMarkup(buttons),
+                parse_mode="Markdown"
+            )
         else:
-            await query.message.reply_text("Записів не знайдено. Час оновити свій образ! 💄")
+            await query.edit_message_text(
+                "Записів не знайдено. Час оновити свій образ! 💄",
+                reply_markup=InlineKeyboardMarkup(buttons)
+            )
         return
 
     if query.data.startswith('note_'):
