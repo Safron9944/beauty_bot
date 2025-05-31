@@ -359,6 +359,7 @@ async def edit_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 # --- ДОДАТИ УМОВУ ---
+# --- ДОДАВАННЯ УМОВИ ---
 async def add_condition_start(update, context):
     query = update.callback_query
     await query.answer()
@@ -369,8 +370,8 @@ async def add_condition_start(update, context):
     await query.edit_message_text("➕ Введіть текст нової умови:")
     return ADDING_CONDITION
 
+
 async def save_condition(update, context):
-    import sqlite3
     text = update.message.text.strip()
     client_id = context.user_data.get("condition_client_id")
 
@@ -399,8 +400,8 @@ async def edit_condition_start(update, context):
     await query.edit_message_text("✏️ Введіть новий текст для цієї умови:")
     return EDITING_CONDITION
 
+
 async def save_edited_condition(update, context):
-    import sqlite3
     condition_id = context.user_data.get("edit_condition_id")
     new_text = update.message.text.strip()
 
@@ -424,30 +425,37 @@ async def save_edited_condition(update, context):
     else:
         await update.message.reply_text("⚠️ Помилка: клієнта не знайдено.")
     return ConversationHandler.END
-    async def edit_note_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        query = update.callback_query
-        await query.answer()
 
-        client_id = int(query.data.split("_")[-1])
-        context.user_data['step'] = 'edit_note'
-        context.user_data['edit_note_client_id'] = client_id
+# --- РЕДАГУВАННЯ НОТАТКИ ---
+async def edit_note_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
 
-        await query.edit_message_text("📝 Введіть нову нотатку для клієнта:")
+    client_id = int(query.data.split("_")[-1])
+    context.user_data['step'] = 'edit_note'
+    context.user_data['edit_note_client_id'] = client_id
 
-    async def save_edited_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        import sqlite3
-        note = update.message.text.strip()
-        client_id = context.user_data.get("edit_note_client_id")
+    await query.edit_message_text("📝 Введіть нову нотатку для клієнта:")
 
-        conn = sqlite3.connect("appointments.db")
-        c = conn.cursor()
-        c.execute("UPDATE clients SET note=? WHERE id=?", (note, client_id))
-        conn.commit()
-        conn.close()
 
-        await update.message.reply_text("✅ Нотатку оновлено.")
-        await show_client_card(update, context, client_id)
-        return ConversationHandler.END
+async def save_edited_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    note = update.message.text.strip()
+    client_id = context.user_data.get("edit_note_client_id")
+
+    if not note:
+        await update.message.reply_text("⚠️ Нотатка не може бути порожньою.")
+        return EDITING_NOTE
+
+    conn = sqlite3.connect("appointments.db")
+    c = conn.cursor()
+    c.execute("UPDATE clients SET note=? WHERE id=?", (note, client_id))
+    conn.commit()
+    conn.close()
+
+    await update.message.reply_text("✅ Нотатку оновлено.")
+    await show_client_card(update, context, client_id)
+    return ConversationHandler.END
+
 
 # --- ПІДТВЕРДЖЕННЯ ТА ВИДАЛЕННЯ ---
 async def delete_condition(update, context):
