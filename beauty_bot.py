@@ -193,6 +193,29 @@ def get_price_text():
 # --- ГОЛОВНЕ МЕНЮ ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+    # Пробуємо знайти клієнта з цим user_id
+    c.execute("SELECT id FROM clients WHERE user_id=?", (user_id,))
+    row = c.fetchone()
+    conn.close()
+
+    # Якщо не знайдено, пропонуємо ввести телефон для ідентифікації
+    if not row:
+        if hasattr(update, "message") and update.message:
+            await update.message.reply_text(
+                "Ви вперше у боті або вас додав майстер вручну.\n"
+                "Щоб знайти ваші записи, введіть свій номер телефону (як вказано у майстра):"
+            )
+        else:
+            await update.callback_query.edit_message_text(
+                "Ви вперше у боті або вас додав майстер вручну.\n"
+                "Щоб знайти ваші записи, введіть свій номер телефону (як вказано у майстра):"
+            )
+        context.user_data['step'] = 'identify_by_phone'
+        return
+
+    # Далі твій старий код меню:
     keyboard = [
         [InlineKeyboardButton("💎 Записатися на процедуру", callback_data='book')],
         [InlineKeyboardButton("🗓️ Мої записи", callback_data='check_booking')],
@@ -1791,10 +1814,104 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_step = context.user_data.get('step')
     text = update.message.text
 
-    # --- Додавання нового клієнта ---
+    # --- 1. Перевірка кроку ідентифікації за телефоном ---
+    if user_step == 'identify_by_phone':
+        phone = update.message.text.strip()
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("SELECT id FROM clients WHERE phone=?", (phone,))
+        row = c.fetchone()
+        if row:
+            client_id = row[0]
+            user_id = update.effective_user.id
+            # Оновлюємо user_id у клієнті
+            c.execute("UPDATE clients SET user_id=? WHERE id=?", (user_id, client_id))
+            # Оновлюємо user_id у всіх його записах
+            c.execute("UPDATE bookings SET user_id=? WHERE client_id=?", (user_id, client_id))
+            conn.commit()
+            await update.message.reply_text("✅ Ви успішно ідентифіковані! Тепер усі ваші записи будуть доступні через бот.")
+        else:
+            await update.message.reply_text("❌ Не знайдено клієнта з таким номером. Перевірте номер або зверніться до майстра.")
+        conn.close()
+        context.user_data['step'] = None
+        return
+
+    # --- 2. Додавання нового клієнта ---
     if context.user_data.get('client_add'):
         await client_add_text_handler(update, context)
         return
+
+    # --- 3. Пошук клієнта ---
+    if context.user_data.get('client_search'):
+        await client_search_text_handler(update, context)
+        return
+
+    # --- 4. Редагування нотатки ---
+    if context.user_data.get('step') == 'edit_note':
+        note = update.message.text.strip()
+        client_id = context.user_data.get('edit_note_client_id')
+        if client_id:
+            conn = sqlite3.connect('appointments.db')
+            c = conn.cursor()
+            c.execute("UPDATE clients SET note=? WHERE id=?", (note, client_id))
+            conn.commit()
+            conn.close()
+            await update.message.reply_text("Примітку оновлено!")
+        else:
+            await update.message.reply_text("Клієнта не знайдено.")
+        context.user_data['step'] = None
+        context.user_data['edit_note_client_id'] = None
+        return
+
+    # --- 5. Введення початкової дати для статистики ---
+    if context.user_data.get('step') == 'stats_period_start':
+        date_start = update.message.text.strip()
+        context.user_data['stats_period'] = {'start': date_start}
+        context.user_data['step'] = 'stats_period_end'
+        await update.message.reply_text("Введіть дату кінця періоду (дд.мм.рррр):")
+        return
+
+    # --- 6. Введення кінцевої дати для статистики ---
+    if context.user_data.get('step') == 'stats_period_end':
+        date_end = update.message.text.strip()
+        date_start = context.user_data['stats_period']['start']
+        context.user_data['step'] = None
+        await show_stats_for_custom_period(update, context, date_start=date_start, date_end=date_end)
+        return
+
+    # --- 7. Категорія витрати ---
+    if context.user_data.get('step') == 'expense_add_category':
+        context.user_data['expense'] = context.user_data.get('expense', {})
+        context.user_data['expense']['category'] = update.message.text.strip()
+        context.user_data['expense']['date'] = datetime.now().strftime("%d.%m.%Y")
+        context.user_data['step'] = 'expense_add_amount'
+        await update.message.reply_text("Введіть суму (грн):")
+        return
+
+    # --- 8. Сума витрати (і збереження) ---
+    if context.user_data.get('step') == 'expense_add_amount':
+        context.user_data['expense']['amount'] = update.message.text.strip()
+        data = context.user_data['expense']
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute(
+            "INSERT INTO expenses (date, category, amount, note) VALUES (?, ?, ?, ?)",
+            (data['date'], data['category'], data['amount'], "")
+        )
+        conn.commit()
+        conn.close()
+        context.user_data['step'] = None
+        context.user_data['expense'] = None
+        await update.message.reply_text(
+            "✅ Витрату додано!",
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("⬅️ Назад до витрат", callback_data="expenses_service")]]
+            )
+        )
+        return
+
+    # ... Далі можеш залишати інші блоки, якщо вони є ...
+
 
     # --- Пошук клієнта ---
     if context.user_data.get('client_search'):
