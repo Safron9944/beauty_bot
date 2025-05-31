@@ -185,8 +185,7 @@ def get_price_text():
     txt += "📲 *Запис і консультація:*\n"
     txt += "• Телефон: +380976853623\n\n"
     txt += "🔗 *Instagram:*\n"
-    txt += "• @safroniuk.brows.lashes\n"
-    txt += "https://www.instagram.com/safroniuk_brows_lashes\n"
+    txt += f"• [@safroniuk.brows.lashes]({INSTAGRAM_LINK})\n"
     return txt
 
 
@@ -217,8 +216,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             welcome, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown"
         )
-
-
 
 # --- АДМІН СЕРВІС ---
 async def manage_schedule_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
