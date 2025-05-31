@@ -978,20 +978,47 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data['step'] = 'book_date'
             today = datetime.now().date()
             dates = []
+            # Отримуємо вихідні дні
             conn = sqlite3.connect('appointments.db')
             c = conn.cursor()
             c.execute("SELECT date FROM deleted_days")
             deleted = {row[0] for row in c.fetchall()}
             conn.close()
-            print(f"Deleted days from DB: {deleted}")  # DEBUG
+
+            # Формуємо список лише днів, де є вільні години
             for i in range(7):
                 d = today + timedelta(days=i)
                 full_date = d.strftime("%d.%m.%Y")
                 show_date = d.strftime("%d.%m")
-                print(f"Checking date {full_date} not in deleted")  # DEBUG
-                if full_date not in deleted:
+                if full_date in deleted:
+                    continue
+
+                # --- Години за розкладом ---
+                conn = sqlite3.connect('appointments.db')
+                c = conn.cursor()
+                c.execute("SELECT times FROM schedule WHERE date = ?", (full_date,))
+                row = c.fetchone()
+                conn.close()
+                if row and row[0]:
+                    times = [t.strip() for t in row[0].split(',')]
+                else:
+                    weekday = d.weekday()
+                    if weekday < 5:
+                        times = [f"{h:02d}:00" for h in range(14, 19)]
+                    else:
+                        times = [f"{h:02d}:00" for h in range(11, 19)]
+
+                # --- Заброньовані години ---
+                conn = sqlite3.connect('appointments.db')
+                c = conn.cursor()
+                c.execute("SELECT time FROM bookings WHERE date = ?", (full_date,))
+                booked_times = [row[0] for row in c.fetchall()]
+                conn.close()
+                free_times = [t for t in times if t not in booked_times]
+
+                if free_times:
                     dates.append((full_date, show_date))
-            print(f"Available dates: {dates}")  # DEBUG
+
             if not dates:
                 await query.edit_message_text("⛔ Немає доступних днів для запису. Зверніться до майстра!")
                 return
@@ -1010,24 +1037,20 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if query.data.startswith('date_'):
-        print("==> [date_] step before:", context.user_data.get('step'))
-        print("==> [date_] booking_client_id:", context.user_data.get('booking_client_id'))
-        print("==> [date_] procedure:", context.user_data.get('procedure'))
-        date = query.data.replace('date_', '')  # Тепер date у форматі "31.05.2024"
+        date = query.data.replace('date_', '')  # формат "31.05.2024"
         context.user_data['date'] = date
         if context.user_data.get('step') == 'book_date':
             context.user_data['step'] = 'book_time'
         else:
             context.user_data['step'] = None
-        print("==> [date_] step after:", context.user_data.get('step'))
-        print("==> [date_] date:", context.user_data.get('date'))
 
+        # --- Години за розкладом ---
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
         c.execute("SELECT times FROM schedule WHERE date = ?", (date,))
         row = c.fetchone()
         conn.close()
-        if row:
+        if row and row[0]:
             times = [t.strip() for t in row[0].split(',')]
         else:
             day = datetime.strptime(date, "%d.%m.%Y").weekday()
@@ -1036,29 +1059,30 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 times = [f"{h:02d}:00" for h in range(11, 19)]
 
-        # --- ФІЛЬТР СЛОТІВ НА СЬОГОДНІ ---
-        today_str = datetime.now().strftime("%d.%m.%Y")  # Тепер з роком!
+        # --- Фільтр для сьогоднішнього дня ---
+        today_str = datetime.now().strftime("%d.%m.%Y")
         if date == today_str:
             now = datetime.now()
             filtered_times = []
             for t in times:
                 slot_time = datetime.strptime(t, "%H:%M")
-                # Логіка за хвилинами
+                # Мінімальний час - через 3 години від поточного
                 if now.minute < 30:
                     min_dt = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=3)
                 else:
                     min_dt = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0) + timedelta(hours=2)
-                if slot_time >= min_dt:
+                if slot_time >= min_dt.time():
                     filtered_times.append(t)
             times = filtered_times
-        # --- /ФІЛЬТР ---
 
+        # --- Заброньовані години ---
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
         c.execute("SELECT time FROM bookings WHERE date = ?", (date,))
         booked_times = [row[0] for row in c.fetchall()]
         conn.close()
         free_times = [t for t in times if t not in booked_times]
+
         if not free_times:
             keyboard = [
                 [InlineKeyboardButton("⬅️ Назад до календаря", callback_data='back_to_date')]
@@ -1068,6 +1092,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
             return
+
         keyboard = [
             [InlineKeyboardButton(f"🕒 {time} | Моє ідеальне віконце 💖", callback_data=f'time_{time}')]
             for time in free_times
@@ -1076,6 +1101,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             keyboard.append([InlineKeyboardButton("⬅️ Назад до вибору дати", callback_data='back_to_procedure')])
         else:
             keyboard.append([InlineKeyboardButton("⬅️ Назад до календаря", callback_data='back_to_date')])
+        date_short = datetime.strptime(date, "%d.%m.%Y").strftime("%d.%m")
+        await query.edit_message_text(
+            f"👑 Обрано дату: {date_short}\n"
+            "Час бути зіркою! Обирай ідеальний час ❤️\n"
+            "Хочеш змінити дату? Натискай ⬅️",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return
 
         # Додаємо коротку дату для користувача
         date_short = datetime.strptime(date, "%d.%m.%Y").strftime("%d.%m")
