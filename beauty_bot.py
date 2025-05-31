@@ -1860,9 +1860,22 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_step == 'edit_times' and update.effective_user.id in ADMIN_IDS:
         day = context.user_data.get('edit_day')  # може бути як "31.05", так і "31.05.2024"
         new_times = text.strip()
+
         # Якщо дата коротка — додаємо рік
-        if len(day) == 5:
-            day = datetime.strptime(day, "%d.%m").replace(year=datetime.now().year).strftime("%d.%m.%Y")
+        if day and len(day) == 5:
+            try:
+                parsed = datetime.strptime(day, "%d.%m").replace(year=datetime.now().year)
+                day = parsed.strftime("%d.%m.%Y")
+            except ValueError:
+                await update.message.reply_text("⚠️ Невірний формат дати. Очікується 'дд.мм' або 'дд.мм.рррр'.")
+                return
+
+        # Безпечна перевірка
+        try:
+            datetime.strptime(day, "%d.%m.%Y")
+        except ValueError:
+            await update.message.reply_text("⚠️ Дата повинна бути у форматі 'дд.мм.рррр'.")
+            return
 
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
@@ -1874,6 +1887,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             c.execute("INSERT INTO schedule (date, times) VALUES (?, ?)", (day, new_times))
         conn.commit()
         conn.close()
+
         # Для відображення — коротка дата:
         day_short = datetime.strptime(day, "%d.%m.%Y").strftime("%d.%m")
         await update.message.reply_text(f"✅ Для дня {day_short} оновлено години: {new_times}")
