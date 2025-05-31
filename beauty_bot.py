@@ -43,6 +43,7 @@ def get_available_dates(days_ahead=7):
     c.execute("SELECT date FROM deleted_days")
     deleted = {row[0] for row in c.fetchall()}
     conn.close()
+
     for i in range(days_ahead):
         d = today + timedelta(days=i)
         full_date = d.strftime("%d.%m.%Y")
@@ -50,7 +51,7 @@ def get_available_dates(days_ahead=7):
         if full_date in deleted:
             continue
 
-        # Години за розкладом
+        # Отримуємо години за розкладом
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
         c.execute("SELECT times FROM schedule WHERE date = ?", (full_date,))
@@ -77,19 +78,18 @@ def get_available_dates(days_ahead=7):
         if full_date == datetime.now().strftime("%d.%m.%Y"):
             now = datetime.now()
             filtered_times = []
+            min_dt = (now + timedelta(hours=3)).time()
             for t in free_times:
                 slot_time = datetime.strptime(t, "%H:%M").time()
-                if now.minute < 30:
-                    min_dt = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=3)
-                else:
-                    min_dt = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0) + timedelta(hours=2)
-                if slot_time >= min_dt.time():
+                if slot_time >= min_dt:
                     filtered_times.append(t)
             free_times = filtered_times
 
+        # Додаємо дату тільки якщо є вільні години
         if free_times:
             dates.append((full_date, show_date))
     return dates
+
 
 def init_db():
     conn = sqlite3.connect('appointments.db')
@@ -2320,5 +2320,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
