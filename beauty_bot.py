@@ -703,39 +703,39 @@ async def client_search_text_handler(update: Update, context: ContextTypes.DEFAU
     context.user_data.pop('client_search', None)
 
 
-async def show_client_card(update, context):
+async def show_client_card(update, context, client_id=None):
     import sqlite3
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
     query = update.callback_query
-    await query.answer()
-    client_id = int(query.data.replace("client_", ""))  # <-- ОТРИМУЄМО client_id З callback_data
+    if not client_id:
+        client_id = int(query.data.replace("client_", ""))  # Отримуємо client_id із callback_data
+        await query.answer()
 
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
 
-    # --- Отримуємо інформацію про клієнта ---
+    # Отримуємо інформацію про клієнта
     c.execute("SELECT name, phone, note FROM clients WHERE id=?", (client_id,))
     result = c.fetchone()
     if not result:
-        await context.bot.send_message(chat_id=update.effective_user.id, text="❌ Клієнта не знайдено.")
+        await query.message.reply_text("❌ Клієнта не знайдено.")
         conn.close()
         return
 
     name, phone, note = result
 
-    # --- Дата останнього запису ---
+    # Дата останнього запису
     c.execute("SELECT MAX(date) FROM bookings WHERE client_id=?", (client_id,))
     last_visit = c.fetchone()[0] or "—"
 
-    # --- Особливі умови ---
+    # Особливі умови
     c.execute("SELECT condition_text FROM client_conditions WHERE client_id=?", (client_id,))
     conditions = [row[0] for row in c.fetchall()]
     special_conditions = '\n'.join(f"— {c}" for c in conditions) if conditions else "—"
 
     conn.close()
 
-    # --- Текст повідомлення ---
     text = (
         f"👤 *{name}*\n"
         f"📞 {phone}\n"
@@ -744,7 +744,6 @@ async def show_client_card(update, context):
         f"📝 Примітка:\n{note or '—'}"
     )
 
-    # --- Кнопки ---
     keyboard = [
         [InlineKeyboardButton("📅 Записати на процедуру", callback_data=f"client_book_{client_id}")],
         [InlineKeyboardButton("➕ Додати умову", callback_data=f"addcond_{client_id}")],
@@ -753,15 +752,19 @@ async def show_client_card(update, context):
         [InlineKeyboardButton("⬅️ Назад", callback_data="back_to_clients")]
     ]
 
-    await context.bot.send_message(
-        chat_id=update.effective_user.id,
-        text=text,
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
-
-
-
+    if query:
+        await query.edit_message_text(
+            text=text,
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+    else:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=text,
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
 
 async def show_client_card_by_phone(update, context, phone):
     import re
@@ -773,7 +776,6 @@ async def show_client_card_by_phone(update, context, phone):
 
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
-    # Знаходимо клієнта по номеру (у БД теж чистимо телефон)
     c.execute("""
         SELECT id FROM clients 
         WHERE REPLACE(REPLACE(REPLACE(REPLACE(phone, '+', ''), ' ', ''), '-', ''), '(', '') = ?
@@ -794,9 +796,11 @@ async def show_client_card_by_phone(update, context, phone):
                 text="Клієнта з цим номером не знайдено."
             )
 
-    # --- Додавання примітки до запису (старий сценарій) ---
+async def save_note_to_booking(update, context):
+    import sqlite3
+    user_step = context.user_data.get('step')
     if user_step == 'add_note' and update.effective_user.id in ADMIN_IDS:
-        booking_id = context.user_data['note_booking_id']
+        booking_id = context.user_data.get('note_booking_id')
         note_text = update.message.text
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
