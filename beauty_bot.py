@@ -658,9 +658,13 @@ async def client_search_text_handler(update: Update, context: ContextTypes.DEFAU
     context.user_data.pop('client_search', None)
 
 
-async def show_client_card(update, context, client_id):
+async def show_client_card(update, context):
     import sqlite3
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+    query = update.callback_query
+    await query.answer()
+    client_id = int(query.data.replace("client_", ""))  # <-- ОТРИМУЄМО client_id З callback_data
 
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
@@ -710,6 +714,7 @@ async def show_client_card(update, context, client_id):
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
+
 
 
 
