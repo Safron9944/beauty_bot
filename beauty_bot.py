@@ -341,44 +341,39 @@ async def edit_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chosen_times = [t.strip() for t in row[0].split(',')] if row and row[0] else []
     context.user_data['chosen_times'] = chosen_times
 
-    # 2. Визначаємо стандартні години для дня
+    # Визначаємо стандартні години для дня
     weekday = datetime.strptime(day + f".{datetime.now().year}", "%d.%m.%Y").weekday()
     if weekday < 5:
         standard_times = [f"{h:02d}:00" for h in range(14, 19)]
     else:
         standard_times = [f"{h:02d}:00" for h in range(11, 19)]
 
-    # --- Оригінальний список доступних годин, без зайнятих
+    # Оригінальний список доступних годин, без зайнятих
     available_times = [t for t in standard_times if t not in chosen_times]
 
     # --- Додаємо фільтр, якщо дата = сьогодні ---
-    today = datetime.now().date()
-    selected_date = datetime.strptime(day + f".{datetime.now().year}", "%d.%m.%Y").date()
-
-    if selected_date == today:
-        min_time = (datetime.now() + timedelta(hours=3)).time()
+    now = datetime.now()
+    if day.strip() == now.strftime("%d.%m"):
+        min_time = (now + timedelta(hours=3)).time()
         filtered_times = []
         for t in available_times:
             slot_time = datetime.strptime(t, "%H:%M").time()
             if slot_time >= min_time:
                 filtered_times.append(t)
+        available_times = filtered_times
 
     # --- Формуємо клавіатуру тільки з доступних годин ---
     if available_times:
         keyboard = [
             [InlineKeyboardButton(t, callback_data=f"time_{t}")] for t in available_times
         ]
-    else:
-        keyboard = []
-
-    # --- Відправляємо клавіатуру користувачу ---
-    if available_times:
         await query.edit_message_text(
             "Оберіть час для запису:",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
     else:
         await query.edit_message_text("На обраний день немає доступних вільних годин. Спробуйте іншу дату.")
+
     # 3. Створюємо кнопки з галочками
     keyboard = []
     for t in standard_times:
