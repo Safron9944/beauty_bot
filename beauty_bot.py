@@ -32,6 +32,65 @@ MASTER_GEO_LINK = "https://maps.app.goo.gl/n6xvT6bpMcL5QjHP9"
 scheduler = BackgroundScheduler()
 scheduler.start()
 
+def get_available_dates(days_ahead=7):
+    from datetime import datetime, timedelta
+    import sqlite3
+
+    today = datetime.now().date()
+    dates = []
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+    c.execute("SELECT date FROM deleted_days")
+    deleted = {row[0] for row in c.fetchall()}
+    conn.close()
+    for i in range(days_ahead):
+        d = today + timedelta(days=i)
+        full_date = d.strftime("%d.%m.%Y")
+        show_date = d.strftime("%d.%m")
+        if full_date in deleted:
+            continue
+
+        # Години за розкладом
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("SELECT times FROM schedule WHERE date = ?", (full_date,))
+        row = c.fetchone()
+        conn.close()
+        if row and row[0]:
+            times = [t.strip() for t in row[0].split(',')]
+        else:
+            weekday = d.weekday()
+            if weekday < 5:
+                times = [f"{h:02d}:00" for h in range(14, 19)]
+            else:
+                times = [f"{h:02d}:00" for h in range(11, 19)]
+
+        # Заброньовані години
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("SELECT time FROM bookings WHERE date = ?", (full_date,))
+        booked_times = [row[0] for row in c.fetchall()]
+        conn.close()
+        free_times = [t for t in times if t not in booked_times]
+
+        # Додатковий фільтр для сьогодні
+        if full_date == datetime.now().strftime("%d.%m.%Y"):
+            now = datetime.now()
+            filtered_times = []
+            for t in free_times:
+                slot_time = datetime.strptime(t, "%H:%M").time()
+                if now.minute < 30:
+                    min_dt = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=3)
+                else:
+                    min_dt = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0) + timedelta(hours=2)
+                if slot_time >= min_dt.time():
+                    filtered_times.append(t)
+            free_times = filtered_times
+
+        if free_times:
+            dates.append((full_date, show_date))
+    return dates
+
 def init_db():
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
@@ -972,64 +1031,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             }
             context.user_data['procedure'] = proc_map[query.data]
             context.user_data['step'] = 'book_date'
-            today = datetime.now().date()
-            dates = []
 
-            # Отримуємо вихідні дні
-            conn = sqlite3.connect('appointments.db')
-            c = conn.cursor()
-            c.execute("SELECT date FROM deleted_days")
-            deleted = {row[0] for row in c.fetchall()}
-            conn.close()
-
-            for i in range(7):
-                d = today + timedelta(days=i)
-                full_date = d.strftime("%d.%m.%Y")
-                show_date = d.strftime("%d.%m")
-                if full_date in deleted:
-                    continue
-
-                # Години за розкладом
-                conn = sqlite3.connect('appointments.db')
-                c = conn.cursor()
-                c.execute("SELECT times FROM schedule WHERE date = ?", (full_date,))
-                row = c.fetchone()
-                conn.close()
-                if row and row[0]:
-                    times = [t.strip() for t in row[0].split(',')]
-                else:
-                    weekday = d.weekday()
-                    if weekday < 5:
-                        times = [f"{h:02d}:00" for h in range(14, 19)]
-                    else:
-                        times = [f"{h:02d}:00" for h in range(11, 19)]
-
-                # Заброньовані години
-                conn = sqlite3.connect('appointments.db')
-                c = conn.cursor()
-                c.execute("SELECT time FROM bookings WHERE date = ?", (full_date,))
-                booked_times = [row[0] for row in c.fetchall()]
-                conn.close()
-                free_times = [t for t in times if t not in booked_times]
-
-                # Додатковий фільтр для сьогоднішнього дня — лише якщо залишились реальні доступні слоти!
-                if full_date == datetime.now().strftime("%d.%m.%Y"):
-                    now = datetime.now()
-                    filtered_times = []
-                    for t in free_times:
-                        slot_time = datetime.strptime(t, "%H:%M").time()
-                        if now.minute < 30:
-                            min_dt = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=3)
-                        else:
-                            min_dt = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0) + timedelta(
-                                hours=2)
-                        if slot_time >= min_dt.time():
-                            filtered_times.append(t)
-                    free_times = filtered_times
-
-                # Додаємо тільки, якщо є доступний час
-                if free_times:
-                    dates.append((full_date, show_date))
+            # ВИКОРИСТОВУЄМО функцію
+            dates = get_available_dates(days_ahead=7)
 
             if not dates:
                 await query.edit_message_text("⛔ Немає доступних днів для запису. Зверніться до майстра!")
