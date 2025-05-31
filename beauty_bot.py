@@ -826,16 +826,23 @@ async def show_clients_list(update, context):
         await query.edit_message_text("Список клієнтів порожній.")
         return
 
+    # Кнопка для додавання нового клієнта
     keyboard = [
-        [InlineKeyboardButton(name, callback_data=f"client_{client_id}")]
-        for client_id, name in clients
+        [InlineKeyboardButton("Додати нового клієнта", callback_data="add_new_client")]
     ]
+
+    # Виводимо список клієнтів
+    keyboard.extend(
+        [InlineKeyboardButton(name, callback_data=f"client_{client_id}") for client_id, name in clients]
+    )
+
     keyboard.append([InlineKeyboardButton("⬅️ Назад до головного меню", callback_data="back_to_menu")])
 
     await query.edit_message_text(
         "📋 Список клієнтів:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
+
 
 async def save_note_to_booking(update, context):
     import sqlite3
@@ -953,6 +960,12 @@ async def list_conditions_handler(update: Update, context: ContextTypes.DEFAULT_
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
+
+async def add_new_client(update, context):
+    await update.message.reply_text(
+        "Введіть ім'я нового клієнта."
+    )
+    context.user_data['step'] = 'add_name'  # Крок 1: введення імені
 
 
 async def calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1609,6 +1622,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"❌ День {date_short} зроблено вихідним і записів не буде.",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Назад", callback_data="manage_schedule")]])
         )
+    if query.data == "add_new_client":
+        await add_new_client(update, context)
+        return
 
     if query.data.startswith("client_history_"):
         client_id = int(query.data.replace("client_history_", ""))
@@ -1828,6 +1844,27 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # --- 2. Додавання нового клієнта ---
     if context.user_data.get('client_add'):
         await client_add_text_handler(update, context)
+        return
+    if context.user_data.get('step') == 'add_name':
+        name = update.message.text.strip()
+        context.user_data['new_client_name'] = name
+        await update.message.reply_text("Введіть номер телефону нового клієнта:")
+        context.user_data['step'] = 'add_phone'  # Крок 2: введення телефону
+        return
+    if context.user_data.get('step') == 'add_phone':
+        phone = update.message.text.strip()
+        name = context.user_data.get('new_client_name')
+
+        # Зберігаємо клієнта в базу
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("INSERT INTO clients (name, phone) VALUES (?, ?)", (name, phone))
+        conn.commit()
+        conn.close()
+
+        await update.message.reply_text(f"Клієнт {name} доданий з телефоном {phone}.")
+        context.user_data['step'] = None  # Завершуємо процес додавання
+        await show_clients_list(update, context)  # Повертаємося до списку клієнтів
         return
 
     # --- 3. Пошук клієнта ---
