@@ -795,6 +795,33 @@ async def show_client_card_by_phone(update, context, phone):
                 chat_id=update.effective_user.id,
                 text="Клієнта з цим номером не знайдено."
             )
+async def show_clients_list(update, context):
+    import sqlite3
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+    query = update.callback_query
+    await query.answer()
+
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+    c.execute("SELECT id, name FROM clients ORDER BY name")
+    clients = c.fetchall()
+    conn.close()
+
+    if not clients:
+        await query.edit_message_text("Список клієнтів порожній.")
+        return
+
+    keyboard = [
+        [InlineKeyboardButton(name, callback_data=f"client_{client_id}")]
+        for client_id, name in clients
+    ]
+    keyboard.append([InlineKeyboardButton("⬅️ Назад до головного меню", callback_data="back_to_menu")])
+
+    await query.edit_message_text(
+        "📋 Список клієнтів:",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
 async def save_note_to_booking(update, context):
     import sqlite3
@@ -1213,6 +1240,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if query.data == "admin_service":
         await admin_service_handler(update, context)
+        return
+
+    if query.data == "back_to_clients":
+        await show_clients_list(update, context)
         return
 
     if query.data == 'edit_schedule':
