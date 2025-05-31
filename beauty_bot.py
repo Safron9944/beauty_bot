@@ -655,33 +655,43 @@ async def show_client_card(update, context, client_id):
     c = conn.cursor()
 
     # Отримуємо основну інформацію про клієнта
-    c.execute("SELECT name, phone, note, status FROM clients WHERE id=?", (client_id,))
+    c.execute("SELECT name, phone, note FROM clients WHERE id=?", (client_id,))
     result = c.fetchone()
     if not result:
         await update.message.reply_text("Клієнта не знайдено.")
         conn.close()
         return
 
-    name, phone, note, status = result
+    name, phone, note = result
 
     # Дата останнього візиту
     c.execute("SELECT MAX(date) FROM bookings WHERE client_id=?", (client_id,))
     last_visit = c.fetchone()[0] or "—"
 
-    # Особливі умови (нове поле — наприклад, ingredients або sensitivity)
+    # Отримуємо останній статус запису (не обов’язково, але можеш показати)
+    c.execute("""
+        SELECT status FROM bookings 
+        WHERE client_id=? ORDER BY date DESC, time DESC LIMIT 1
+    """, (client_id,))
+    status_row = c.fetchone()
+    status = status_row[0] if status_row else "—"
+
+    # Особливі умови
     c.execute("SELECT condition_text FROM client_conditions WHERE client_id=?", (client_id,))
     conditions = [row[0] for row in c.fetchall()]
     special_conditions = '\n'.join(f"— {c}" for c in conditions) if conditions else "—"
 
+    conn.close()
+
     # Текст картки
     txt = (
-        f"\U0001F5C2\ufe0f КЛАСИФІКАЦІЯ: CLIENT FILE #{client_id}\n\n"
-        f"\U0001F478 ІМ’Я: {name}\n"
-        f"\U0001F4F1 МОБ: {phone}\n"
-        f"\U0001F4C5 АКТИВНІСТЬ: останній візит — {last_visit}\n"
-        f"\U0001F4CC СТАТУС: {status if status else '—'}\n\n"
-        f"\u26A0\ufe0F ОСОБЛИВІ УМОВИ:\n{special_conditions}\n\n"
-        f"\U0001F4DD СПОСТЕРЕЖЕННЯ:\n{note if note else '—'}"
+        f"📂 *КЛІЄНТ #{client_id}*\n\n"
+        f"👤 *Ім’я:* {name}\n"
+        f"📞 *Телефон:* {phone}\n"
+        f"📅 *Останній візит:* {last_visit}\n"
+        f"🔖 *Статус:* {status}\n\n"
+        f"⚠️ *Особливі умови:*\n{special_conditions}\n\n"
+        f"📝 *Нотатка:*\n{note if note else '—'}"
     )
 
     # Кнопки керування
@@ -698,6 +708,7 @@ async def show_client_card(update, context, client_id):
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
+
 
 async def show_client_card_by_phone(update, context, phone):
     import re
@@ -729,21 +740,6 @@ async def show_client_card_by_phone(update, context, phone):
                 chat_id=update.effective_user.id,
                 text="Клієнта з цим номером не знайдено."
             )
-
-
-async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_step = context.user_data.get('step')
-    text = update.message.text
-
-    # --- Пошук клієнта ---
-    if context.user_data.get('client_search'):
-        await client_search_text_handler(update, context)
-        return
-
-    # --- Додавання нового клієнта ---
-    if context.user_data.get('client_add'):
-        await client_add_text_handler(update, context)
-        return
 
     # --- Додавання примітки до запису (старий сценарій) ---
     if user_step == 'add_note' and update.effective_user.id in ADMIN_IDS:
@@ -1608,16 +1604,33 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             conn = sqlite3.connect('appointments.db')
             c = conn.cursor()
+
+            # Перевірити чи клієнт існує
+            c.execute("SELECT id FROM clients WHERE phone = ?", (phone,))
+            result = c.fetchone()
+
+            if result:
+                client_id = result[0]
+            else:
+                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                c.execute(
+                    "INSERT INTO clients (name, phone, user_id, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+                    (name, phone, user_id, "", now, now))
+                client_id = c.lastrowid
+
+            # Додати запис
             c.execute(
-                "INSERT INTO bookings (user_id, procedure, date, time, status, note) VALUES (?, ?, ?, ?, ?, ?)",
-                (user_id, procedure, date, time, "Очікує підтвердження", f"{name} / {phone}"))
+                "INSERT INTO bookings (user_id, client_id, procedure, date, time, status, note) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (user_id, client_id, procedure, date, time, "Очікує підтвердження", ""))
             booking_id = c.lastrowid
             conn.commit()
             conn.close()
+
             print("✅ [Запис створено] ID:", booking_id)
+
         except Exception as e:
-            print("❌ [SQL INSERT ERROR]:", e)
-            await update.message.reply_text("❌ Сталася помилка при створенні запису. Спробуйте пізніше.")
+            print("❌ [SQL ERROR]:", e)
+            await update.message.reply_text("⚠️ Виникла помилка при збереженні запису. Спробуйте ще раз.")
             return
 
         # Повідомлення користувачу
@@ -1634,17 +1647,12 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Повідомлення адміну
         try:
-            admin_text = (
-                f"📥 Новий запис:\n"
-                f"ПІБ/Телефон: {name} / {phone}\n"
-                f"Процедура: {procedure}\n"
-                f"Дата: {date} о {time}"
-            )
+            msg = f"📥 Новий запис:\nПІБ/Телефон: {name} / {phone}\nПроцедура: {procedure}\nДата: {date} о {time}"
             if isinstance(ADMIN_IDS, list):
                 for admin_id in ADMIN_IDS:
-                    await context.bot.send_message(chat_id=admin_id, text=admin_text)
+                    await context.bot.send_message(chat_id=admin_id, text=msg)
             else:
-                await context.bot.send_message(chat_id=ADMIN_IDS, text=admin_text)
+                await context.bot.send_message(chat_id=ADMIN_IDS, text=msg)
         except Exception as e:
             print("❌ [ADMIN MSG ERROR]:", e)
 
