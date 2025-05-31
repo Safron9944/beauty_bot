@@ -1034,13 +1034,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             now = datetime.now()
             filtered_times = []
             for t in times:
-                slot_hour, slot_minute = map(int, t.split(":"))
+                slot_time = datetime.strptime(t, "%H:%M")
+                # Оцінюємо "мінімальний доступний час"
                 if now.minute < 30:
-                    min_slot_hour = now.hour + 2
+                    min_dt = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=2)
                 else:
-                    min_slot_hour = now.hour + 3
-                # тільки години СЬОГОДНІ, які >= порогу
-                if slot_hour >= min_slot_hour:
+                    min_dt = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=3)
+                # Якщо слот ПІЗНІШЕ або рівно мінімальному часу
+                if slot_time >= min_dt:
                     filtered_times.append(t)
             times = filtered_times
         # --- /ФІЛЬТР ---
