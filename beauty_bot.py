@@ -965,26 +965,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"User ID: {user_id}")
     print(f"Callback Data: {query.data}")
 
-    if query.data == "manage_schedule":
-        await manage_schedule_handler(update, context)
-        return
-
-    if query.data == "admin_service":
-        await admin_service_handler(update, context)
-        return
-
-    if query.data == 'edit_schedule':
-        await edit_schedule_handler(update, context)
-        return
-
-    if query.data == 'show_price':
-        price_text = get_price_text()
-        keyboard = [
-            [InlineKeyboardButton("⬅️ Назад до меню", callback_data="back_to_menu")]
-        ]
-        await query.edit_message_text(price_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
-        return
-
     if query.data.startswith('proc_'):
         # Встановлюємо вибрану процедуру
         proc_map = {
@@ -1019,6 +999,26 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🌸 Який день підходить для запису? Обирай дату!",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
+        return
+
+    if query.data == "manage_schedule":
+        await manage_schedule_handler(update, context)
+        return
+
+    if query.data == "admin_service":
+        await admin_service_handler(update, context)
+        return
+
+    if query.data == 'edit_schedule':
+        await edit_schedule_handler(update, context)
+        return
+
+    if query.data == 'show_price':
+        price_text = get_price_text()
+        keyboard = [
+            [InlineKeyboardButton("⬅️ Назад до меню", callback_data="back_to_menu")]
+        ]
+        await query.edit_message_text(price_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
         return
 
     # Ось тут додаєш блоки для редагування прайсу
