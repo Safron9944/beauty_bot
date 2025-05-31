@@ -359,11 +359,9 @@ async def edit_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         min_time = (datetime.now() + timedelta(hours=3)).time()
         filtered_times = []
         for t in available_times:
-            hour, minute = map(int, t.split(":"))
-            slot_time = datetime.now().replace(hour=hour, minute=minute, second=0, microsecond=0).time()
+            slot_time = datetime.strptime(t, "%H:%M").time()
             if slot_time >= min_time:
                 filtered_times.append(t)
-        available_times = filtered_times
 
     # --- Формуємо клавіатуру тільки з доступних годин ---
     if available_times:
