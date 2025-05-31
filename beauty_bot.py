@@ -1466,7 +1466,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Додаткові кнопки:
         keyboard.append([InlineKeyboardButton("Додати вручну", callback_data="custom_time")])
         keyboard.append([InlineKeyboardButton("Зберегти", callback_data="save_times")])
-        keyboard.append([InlineKeyboardButton("⬅️ Дні", callback_data="edit_schedule")])  # ← ЦЕ кнопка "назад"
+        keyboard.append([InlineKeyboardButton("⬅️ Дні", callback_data="edit_schedule")])
 
         selected = ', '.join(chosen) if chosen else "нічого не вибрано"
         await query.edit_message_text(
