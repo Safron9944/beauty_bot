@@ -1584,66 +1584,35 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # --- Обробка введення ПІБ та телефону для запису ---
     if user_step == 'get_fullinfo':
+        print("==> [get_fullinfo] Вхід")
+        print("==> [get_fullinfo] text:", text)
         context.user_data['fullinfo'] = text
+
         procedure = context.user_data.get('procedure')
         date = context.user_data.get('date')
         time = context.user_data.get('time')
+        print("==> [get_fullinfo] Зібрано:", procedure, date, time)
+
         fullinfo = context.user_data.get('fullinfo')
         user_id = update.effective_user.id
         try:
             name, phone = [s.strip() for s in fullinfo.split(',', 1)]
         except Exception:
             name, phone = fullinfo.strip(), "N/A"
-        conn = sqlite3.connect('appointments.db')
-        c = conn.cursor()
-        c.execute(
-            "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (user_id, name, phone, procedure, date, time, "Очікує підтвердження"))
-        booking_id = c.lastrowid
-        conn.commit()
-        conn.close()
-        # Якщо використовуєш Google Sheets — цей рядок залишаєш:
-        add_to_google_sheet(name, "", phone, procedure, date, time)
-        keyboard = [
-            [InlineKeyboardButton("✅ Підтвердити", callback_data=f"confirm_{booking_id}"),
-             InlineKeyboardButton("❌ Відмінити", callback_data=f"cancel_{booking_id}")],
-        ]
-        await update.message.reply_text(
-            f"🎉 Ти записана на *{procedure}* {date} о {time}! Я вже чекаю зустрічі з тобою, ти надихаєш! 💖\n\n"
-            "Якщо хочеш — підтверди чи відміні запис, або запишися ще раз 👑",
-            parse_mode="Markdown",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
-        # Сповіщаємо адміністратора:
-        await context.bot.send_message(
-            chat_id=ADMIN_IDS,
-            text=f"""📥 Новий запис:
-    ПІБ/Телефон: {name} / {phone}
-    Процедура: {procedure}
-    Дата: {date} о {time}"""
-        )
-        # Нагадування клієнту:
-        event_time = datetime.strptime(f"{date} {time}", "%d.%m %H:%M")
-        remind_day = event_time - timedelta(days=1)
-        remind_time = remind_day.replace(hour=10, minute=0, second=0, microsecond=0)
-        remind_2h = event_time - timedelta(hours=2)
-        now = datetime.now()
-        if remind_time > now:
-            scheduler.add_job(
-                send_reminder,
-                'date',
-                run_date=remind_time,
-                args=[user_id, procedure, date, time, "day"]
-            )
-        if remind_2h > now:
-            scheduler.add_job(
-                send_reminder,
-                'date',
-                run_date=remind_2h,
-                args=[user_id, procedure, date, time, "2h"]
-            )
-        context.user_data.clear()
-        return
+
+        try:
+            conn = sqlite3.connect('appointments.db')
+            c = conn.cursor()
+            c.execute(
+                "INSERT INTO bookings (user_id, name, phone, procedure, date, time, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (user_id, name, phone, procedure, date, time, "Очікує підтвердження"))
+            booking_id = c.lastrowid
+            conn.commit()
+            conn.close()
+            print("✅ [Запис створено] ID:", booking_id)
+        except Exception as e:
+            print("❌ [SQL INSERT ERROR]:", e)
+
 
 
     else:
@@ -1767,14 +1736,15 @@ def main():
         entry_points=[
             CallbackQueryHandler(add_condition_start, pattern=r'^add_condition_\d+$'),
             CallbackQueryHandler(edit_condition_start, pattern=r'^editcond_\d+$'),
-            CallbackQueryHandler(edit_note_start, pattern=r'^edit_note_\d+$')  # 🔹 Додано!
+            CallbackQueryHandler(edit_note_start, pattern=r'^edit_note_\d+$')
         ],
         states={
             ADDING_CONDITION: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_condition)],
             EDITING_CONDITION: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_edited_condition)],
-            EDITING_NOTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_edited_note)]  # 🔹 Додано!
+            EDITING_NOTE: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_edited_note)]
         },
         fallbacks=[],
+        per_message=True  # 🔹 ВИРІШУЄ ПОПЕРЕДЖЕННЯ
     ))
 
     # --- Хендлер редагування нотатки ---
