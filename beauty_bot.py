@@ -266,7 +266,7 @@ async def edit_schedule_handler(update: Update, context: ContextTypes.DEFAULT_TY
     conn.close()
     for i in range(10):
         d = today + timedelta(days=i)
-        date_str = d.strftime("%d.%m")
+        ddate_str = d.strftime("%d.%m.%Y")
         dates.append(date_str)
     keyboard = [
         [InlineKeyboardButton(f"🗓️ {date} {'✅' if date in scheduled_dates else '➕'}", callback_data=f'edit_day_{date}')]
@@ -883,11 +883,12 @@ async def calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⛔ Доступно тільки адміну.")
         return
     today = datetime.now().date()
+    today_str = today.strftime("%d.%m.%Y")
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
     c.execute(
         "SELECT date, time, procedure, name, phone, status FROM bookings "
-        "WHERE date=? ORDER BY date, time", (today.strftime("%d.%m"),)
+        "WHERE date=? ORDER BY date, time", (today_str,)
     )
     rows = c.fetchall()
     conn.close()
@@ -896,7 +897,7 @@ async def calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Назад", callback_data="manage_schedule")]])
         )
         return
-    text = f"📅 Записи на {today.strftime('%d.%m.%Y')}:\n\n"
+    text = f"📅 Записи на {today_str}:\n\n"
     for rec in rows:
         date, time, procedure, name, phone, status = rec
         text += (
@@ -913,7 +914,7 @@ async def week_calendar_handler(update: Update, context: ContextTypes.DEFAULT_TY
         await update.message.reply_text("⛔ Доступно тільки адміну.")
         return
     today = datetime.now().date()
-    week_dates = [(today + timedelta(days=i)).strftime("%d.%m") for i in range(7)]
+    week_dates = [(today + timedelta(days=i)).strftime("%d.%m.%Y") for i in range(7)]
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
     c.execute(
@@ -968,7 +969,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn.close()
         for i in range(7):
             d = today + timedelta(days=i)
-            date_str = d.strftime("%d.%m")
+            ddate_str = d.strftime("%d.%m.%Y")
             if date_str not in deleted:
                 dates.append(date_str)
         if not dates:
@@ -1173,7 +1174,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn.close()
         for i in range(7):
             d = today + timedelta(days=i)
-            date_str = d.strftime("%d.%m")
+            date_str = d.strftime("%d.%m.%Y")
             if date_str not in deleted:
                 dates.append(date_str)
         keyboard = [
@@ -1199,9 +1200,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if query.data == "expense_add":
-        context.user_data['step'] = 'expense_add_date'
+        context.user_data['expense'] = {}
+        context.user_data['expense']['date'] = datetime.now().strftime("%d.%m.%Y")  # фіксуємо сьогоднішню дату
+        context.user_data['step'] = 'expense_add_category'
         await query.edit_message_text(
-            "Введіть дату витрати (дд.мм.рррр) або 'сьогодні':",
+            "Введіть категорію витрати (наприклад: матеріали, оренда, реклама):",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("⬅️ Назад", callback_data="expenses_service")]
             ])
@@ -1748,34 +1751,24 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await show_stats_for_custom_period(update, context, date_start=date_start, date_end=date_end)
         return
 
-    if context.user_data.get('step') == 'expense_add_date':
-        context.user_data['expense'] = {}
-        context.user_data['expense']['date'] = update.message.text.strip()
-        context.user_data['step'] = 'expense_add_category'
-        await update.message.reply_text("Введіть категорію (наприклад: матеріали, оренда, реклама):")
-        return
-
+    # Категорія витрати
     if context.user_data.get('step') == 'expense_add_category':
+        context.user_data['expense'] = context.user_data.get('expense', {})
         context.user_data['expense']['category'] = update.message.text.strip()
+        context.user_data['expense']['date'] = datetime.now().strftime("%d.%m.%Y")
         context.user_data['step'] = 'expense_add_amount'
         await update.message.reply_text("Введіть суму (грн):")
         return
 
+    # Сума витрати (і збереження)
     if context.user_data.get('step') == 'expense_add_amount':
         context.user_data['expense']['amount'] = update.message.text.strip()
-        context.user_data['step'] = 'expense_add_note'
-        await update.message.reply_text("Додайте коротку примітку (або '-' якщо не потрібно):")
-        return
-
-    if context.user_data.get('step') == 'expense_add_note':
-        context.user_data['expense']['note'] = update.message.text.strip()
         data = context.user_data['expense']
-        # Сохраняем в базу
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
         c.execute(
             "INSERT INTO expenses (date, category, amount, note) VALUES (?, ?, ?, ?)",
-            (data['date'], data['category'], data['amount'], data['note'])
+            (data['date'], data['category'], data['amount'], "")
         )
         conn.commit()
         conn.close()
@@ -1785,7 +1778,6 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [[InlineKeyboardButton("⬅️ Назад до витрат", callback_data="expenses_service")]]
         ))
         return
-
 
     # --- ЗБЕРЕЖЕННЯ ОНОВЛЕНОЇ НОТАТКИ ---
 
