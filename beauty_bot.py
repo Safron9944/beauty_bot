@@ -87,6 +87,11 @@ def get_available_dates(days_ahead=7):
                     filtered_times.append(t)
             free_times = filtered_times
 
+            # Додатковий захист: якщо зараз >= 18:00 — сьогодні не показуємо навіть якщо є слоти!
+            if now.hour >= 18 or not free_times:
+                print(f"DEBUG | {full_date} — не додаємо, бо вже вечір (після 18:00) або немає годин")
+                continue
+
         if free_times:
             dates.append((full_date, show_date))
             print(f"DEBUG | {full_date} — додано, є вільний час: {free_times}")
@@ -95,6 +100,7 @@ def get_available_dates(days_ahead=7):
 
     print(f"DEBUG | Повертаємо дати: {[d[0] for d in dates]}")
     return dates
+
 
 
 
