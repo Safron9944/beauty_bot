@@ -38,41 +38,43 @@ def get_available_dates(days_ahead=7):
 
     today = datetime.now().date()
     dates = []
-    conn = sqlite3.connect('appointments.db')
-    c = conn.cursor()
-    c.execute("SELECT date FROM deleted_days")
-    deleted = {row[0] for row in c.fetchall()}
-    conn.close()
+
+    # Отримуємо список вихідних днів (deleted_days)
+    with sqlite3.connect('appointments.db') as conn:
+        c = conn.cursor()
+        c.execute("SELECT date FROM deleted_days")
+        deleted = {row[0] for row in c.fetchall()}
+
+    print(f"DEBUG | Сьогодні: {today.strftime('%d.%m.%Y')}")
+    print(f"DEBUG | Вихідні дні: {deleted}")
 
     for i in range(days_ahead):
         d = today + timedelta(days=i)
         full_date = d.strftime("%d.%m.%Y")
         show_date = d.strftime("%d.%m")
+
         if full_date in deleted:
+            print(f"DEBUG | {full_date} — пропущено, бо вихідний")
             continue
 
-        # Години за розкладом
-        conn = sqlite3.connect('appointments.db')
-        c = conn.cursor()
-        c.execute("SELECT times FROM schedule WHERE date = ?", (full_date,))
-        row = c.fetchone()
-        conn.close()
-        if row and row[0]:
-            times = [t.strip() for t in row[0].split(',')]
-        else:
-            weekday = d.weekday()
-            if weekday < 5:
-                times = [f"{h:02d}:00" for h in range(14, 19)]
+        # Часовий слот
+        with sqlite3.connect('appointments.db') as conn:
+            c = conn.cursor()
+            c.execute("SELECT times FROM schedule WHERE date = ?", (full_date,))
+            row = c.fetchone()
+            if row and row[0]:
+                times = [t.strip() for t in row[0].split(',')]
             else:
-                times = [f"{h:02d}:00" for h in range(11, 19)]
+                weekday = d.weekday()
+                if weekday < 5:
+                    times = [f"{h:02d}:00" for h in range(14, 19)]
+                else:
+                    times = [f"{h:02d}:00" for h in range(11, 19)]
 
-        # Заброньовані години
-        conn = sqlite3.connect('appointments.db')
-        c = conn.cursor()
-        c.execute("SELECT time FROM bookings WHERE date = ?", (full_date,))
-        booked_times = [row[0] for row in c.fetchall()]
-        conn.close()
-        free_times = [t for t in times if t not in booked_times]
+            # Заброньовані години
+            c.execute("SELECT time FROM bookings WHERE date = ?", (full_date,))
+            booked_times = [row[0] for row in c.fetchall()]
+            free_times = [t for t in times if t not in booked_times]
 
         # Додатковий фільтр для сьогодні
         if full_date == datetime.now().strftime("%d.%m.%Y"):
@@ -85,10 +87,15 @@ def get_available_dates(days_ahead=7):
                     filtered_times.append(t)
             free_times = filtered_times
 
-        # Додаємо дату тільки якщо є вільні години
         if free_times:
             dates.append((full_date, show_date))
+            print(f"DEBUG | {full_date} — додано, є вільний час: {free_times}")
+        else:
+            print(f"DEBUG | {full_date} — немає вільних годин")
+
+    print(f"DEBUG | Повертаємо дати: {[d[0] for d in dates]}")
     return dates
+
 
 
 
