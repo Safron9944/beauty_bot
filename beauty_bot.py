@@ -1822,17 +1822,13 @@ def main():
     init_db()
     app = ApplicationBuilder().token(TOKEN).build()
 
-
-    # --- Основні хендлери ---
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
 
     # --- Хендлери картки клієнта ---
-    # --- Хендлери картки клієнта ---
     app.add_handler(CallbackQueryHandler(show_client_card, pattern=r'^client_\d+$'))
     app.add_handler(CallbackQueryHandler(add_condition_start, pattern=r'^addcond_\d+$'))
-    app.add_handler(CallbackQueryHandler(list_conditions_handler, pattern=r'^listcond_\d+$'))  # 👈 виправлено тут
+    app.add_handler(CallbackQueryHandler(list_conditions_handler, pattern=r'^listcond_\d+$'))
     app.add_handler(CallbackQueryHandler(edit_note_start, pattern=r'^editnote_\d+$'))
 
     # --- Хендлери видалення умов ---
@@ -1855,6 +1851,9 @@ def main():
         fallbacks=[],
         per_message=False
     ))
+
+    # --- Універсальний хендлер (завжди останнім!) ---
+    app.add_handler(CallbackQueryHandler(button_handler))
 
     app.run_polling()
 
