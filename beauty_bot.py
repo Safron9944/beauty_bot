@@ -1667,7 +1667,6 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             if result:
                 client_id = result[0]
-                # Якщо клієнт є — просто додаємо новий запис для нього
             else:
                 now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 c.execute(
@@ -1683,43 +1682,42 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             conn.commit()
             conn.close()
 
-            # Повідомлення користувачу
-            try:
-                conn = sqlite3.connect('appointments.db')
-                c = conn.cursor()
-                # ...код створення клієнта та booking...
-                conn.commit()
-                conn.close()
+            # --- Повідомлення користувачу ---
+            keyboard = [
+                [InlineKeyboardButton("✅ Підтвердити", callback_data=f"confirm_{booking_id}"),
+                 InlineKeyboardButton("❌ Відмінити", callback_data=f"cancel_{booking_id}")]
+            ]
+            await update.message.reply_text(
+                f"🎉 Ти записана на *{procedure}* {date} о {time}! Я вже чекаю зустрічі з тобою, ти надихаєш! 💖\n\n"
+                "Якщо хочеш — підтверди чи відміні запис, або запишися ще раз 👑",
+                parse_mode="Markdown",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
 
-                keyboard = [
-                    [InlineKeyboardButton("✅ Підтвердити", callback_data=f"confirm_{booking_id}"),
-                     InlineKeyboardButton("❌ Відмінити", callback_data=f"cancel_{booking_id}")]
-                ]
-                await update.message.reply_text(
-                    f"🎉 Ти записана на *{procedure}* {date} о {time}! Я вже чекаю зустрічі з тобою, ти надихаєш! 💖\n\n"
-                    "Якщо хочеш — підтверди чи відміні запис, або запишися ще раз 👑",
-                    parse_mode="Markdown",
-                    reply_markup=InlineKeyboardMarkup(keyboard)
-                )
-
-            except Exception as e:
-                print("❌ [SQL ERROR]:", e)
-                await update.message.reply_text("⚠️ Виникла помилка при збереженні запису. Спробуйте ще раз.")
-                return
-
-            # Повідомлення адміну (залишається)
-            try:
-                msg = f"📥 Новий запис:\nПІБ/Телефон: {name} / {phone}\nПроцедура: {procedure}\nДата: {date} о {time}"
-                if isinstance(ADMIN_IDS, list):
-                    for admin_id in ADMIN_IDS:
-                        await context.bot.send_message(chat_id=admin_id, text=msg)
-                else:
-                    await context.bot.send_message(chat_id=ADMIN_IDS, text=msg)
-            except Exception as e:
-                print("❌ [ADMIN MSG ERROR]:", e)
-
-            context.user_data.clear()
+        except Exception as e:
+            print("❌ [SQL ERROR]:", e)
+            await update.message.reply_text("⚠️ Виникла помилка при збереженні запису. Спробуйте ще раз.")
             return
+
+        # --- Повідомлення адміну ---
+        try:
+            msg = (
+                f"📥 Новий запис:\n"
+                f"ПІБ/Телефон: {name} / {phone}\n"
+                f"Процедура: {procedure}\n"
+                f"Дата: {date} о {time}"
+            )
+            if isinstance(ADMIN_IDS, list):
+                for admin_id in ADMIN_IDS:
+                    await context.bot.send_message(chat_id=admin_id, text=msg)
+            else:
+                await context.bot.send_message(chat_id=ADMIN_IDS, text=msg)
+        except Exception as e:
+            print("❌ [ADMIN MSG ERROR]:", e)
+
+        context.user_data.clear()
+        return
+
 
 # --- Нагадування ---
 async def send_reminder(user_id, procedure, date, time, mode="day"):
