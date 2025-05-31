@@ -1806,7 +1806,7 @@ def main():
 
     # --- Хендлери картки клієнта ---
     # --- Хендлери картки клієнта ---
-    app.add_handler(CallbackQueryHandler(show_client_card_button, pattern=r'^client_\d+$'))
+    app.add_handler(CallbackQueryHandler(show_client_card, pattern=r'^client_\d+$'))
     app.add_handler(CallbackQueryHandler(add_condition_start, pattern=r'^addcond_\d+$'))
     app.add_handler(CallbackQueryHandler(list_conditions_handler, pattern=r'^listcond_\d+$'))  # 👈 виправлено тут
     app.add_handler(CallbackQueryHandler(edit_note_start, pattern=r'^editnote_\d+$'))
