@@ -1264,7 +1264,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if query.data == "expense_list":
-        from datetime import datetime, timedelta
         today = datetime.now()
         month_ago = (today - timedelta(days=30)).strftime("%d.%m.%Y")
         conn = sqlite3.connect('appointments.db')
