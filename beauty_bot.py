@@ -333,7 +333,6 @@ async def edit_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     day = query.data.replace('edit_day_', '')
     context.user_data['edit_day'] = day
 
-    # 1. Витягуємо години для цього дня з БД
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
     c.execute("SELECT times FROM schedule WHERE date = ?", (day,))
@@ -349,6 +348,39 @@ async def edit_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         standard_times = [f"{h:02d}:00" for h in range(11, 19)]
 
+    # --- Оригінальний список доступних годин, без зайнятих
+    available_times = [t for t in standard_times if t not in chosen_times]
+
+    # --- Додаємо фільтр, якщо дата = сьогодні ---
+    today = datetime.now().date()
+    selected_date = datetime.strptime(day + f".{datetime.now().year}", "%d.%m.%Y").date()
+
+    if selected_date == today:
+        min_time = (datetime.now() + timedelta(hours=3)).time()
+        filtered_times = []
+        for t in available_times:
+            hour, minute = map(int, t.split(":"))
+            slot_time = datetime.now().replace(hour=hour, minute=minute, second=0, microsecond=0).time()
+            if slot_time >= min_time:
+                filtered_times.append(t)
+        available_times = filtered_times
+
+    # --- Формуємо клавіатуру тільки з доступних годин ---
+    if available_times:
+        keyboard = [
+            [InlineKeyboardButton(t, callback_data=f"time_{t}")] for t in available_times
+        ]
+    else:
+        keyboard = []
+
+    # --- Відправляємо клавіатуру користувачу ---
+    if available_times:
+        await query.edit_message_text(
+            "Оберіть час для запису:",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+    else:
+        await query.edit_message_text("На обраний день немає доступних вільних годин. Спробуйте іншу дату.")
     # 3. Створюємо кнопки з галочками
     keyboard = []
     for t in standard_times:
