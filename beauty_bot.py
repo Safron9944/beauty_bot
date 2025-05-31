@@ -1431,11 +1431,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data['time'] = time
             context.user_data['step'] = 'get_fullinfo'
             await query.edit_message_text(
-                f"📋 Введіть *ПІБ та номер телефону* через кому, наприклад:\n\n"
-                f"`Ольга Чарівна, +380961234567`",
+                f"📋 Введіть *ПІБ та номер телефону* через пробіл, наприклад:\n\n"
+                f"`Ольга Чарівна +380961234567`",
                 parse_mode="Markdown"
             )
-            return
 
     if query.data == 'back_to_date':
         procedure = context.user_data.get('procedure')
