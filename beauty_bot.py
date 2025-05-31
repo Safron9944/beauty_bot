@@ -788,6 +788,50 @@ async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         "💤 Обери день для вихідного (цей день стане недоступним для запису):",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
+# --- ВИВОДИТЬ УМОВИ КЛІЄНТА ---
+async def list_conditions_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    import sqlite3
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+    query = update.callback_query
+    await query.answer()
+
+    client_id = int(query.data.split("_")[-1])
+
+    conn = sqlite3.connect("appointments.db")
+    c = conn.cursor()
+    c.execute("SELECT id, condition_text FROM client_conditions WHERE client_id=?", (client_id,))
+    conditions = c.fetchall()
+    conn.close()
+
+    if not conditions:
+        await query.edit_message_text(
+            "🔍 У цього клієнта ще немає жодної умови.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("➕ Додати умову", callback_data=f"addcond_{client_id}")],
+                [InlineKeyboardButton("⬅️ Назад", callback_data=f"client_{client_id}")]
+            ])
+        )
+        return
+
+    text = "🧾 *Умови клієнта:*\n\n"
+    keyboard = []
+
+    for condition_id, condition_text in conditions:
+        text += f"• {condition_text}\n"
+        keyboard.append([
+            InlineKeyboardButton("📝 Змінити", callback_data=f"editcond_{condition_id}"),
+            InlineKeyboardButton("❌ Видалити", callback_data=f"delcond_{condition_id}")
+        ])
+
+    keyboard.append([InlineKeyboardButton("⬅️ Назад", callback_data=f"client_{client_id}")])
+
+    await query.edit_message_text(
+        text=text,
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
 
 async def calendar_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ADMIN_IDS:
@@ -1761,9 +1805,10 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
 
     # --- Хендлери картки клієнта ---
+    # --- Хендлери картки клієнта ---
     app.add_handler(CallbackQueryHandler(show_client_card_button, pattern=r'^client_\d+$'))
     app.add_handler(CallbackQueryHandler(add_condition_start, pattern=r'^addcond_\d+$'))
-    app.add_handler(CallbackQueryHandler(list_conditions, pattern=r'^listcond_\d+$'))
+    app.add_handler(CallbackQueryHandler(list_conditions_handler, pattern=r'^listcond_\d+$'))  # 👈 виправлено тут
     app.add_handler(CallbackQueryHandler(edit_note_start, pattern=r'^editnote_\d+$'))
 
     # --- Хендлери видалення умов ---
