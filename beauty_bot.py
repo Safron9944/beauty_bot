@@ -978,6 +978,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data['step'] = 'book_date'
             today = datetime.now().date()
             dates = []
+
             # Отримуємо вихідні дні
             conn = sqlite3.connect('appointments.db')
             c = conn.cursor()
@@ -1015,7 +1016,22 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 conn.close()
                 free_times = [t for t in times if t not in booked_times]
 
-                # Якщо є хоч одна вільна година — додаємо день для вибору
+                # Додатковий фільтр для сьогоднішнього дня — лише якщо залишились реальні доступні слоти!
+                if full_date == datetime.now().strftime("%d.%m.%Y"):
+                    now = datetime.now()
+                    filtered_times = []
+                    for t in free_times:
+                        slot_time = datetime.strptime(t, "%H:%M").time()
+                        if now.minute < 30:
+                            min_dt = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=3)
+                        else:
+                            min_dt = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0) + timedelta(
+                                hours=2)
+                        if slot_time >= min_dt.time():
+                            filtered_times.append(t)
+                    free_times = filtered_times
+
+                # Додаємо тільки, якщо є доступний час
                 if free_times:
                     dates.append((full_date, show_date))
 
