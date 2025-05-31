@@ -1390,6 +1390,21 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 times = [f"{h:02d}:00" for h in range(14, 19)]
             else:
                 times = [f"{h:02d}:00" for h in range(11, 19)]
+
+        # ---- ФІЛЬТРУЄМО години для сьогодні ----
+        from datetime import datetime, timedelta
+        today_str = datetime.now().strftime("%d.%m")
+        if date == today_str:
+            now = datetime.now()
+            min_time = (now + timedelta(hours=3)).time()
+            filtered_times = []
+            for t in times:
+                slot_time = datetime.strptime(t, "%H:%M").time()
+                if slot_time >= min_time:
+                    filtered_times.append(t)
+            times = filtered_times
+        # ---- /ФІЛЬТР ----
+
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
         c.execute("SELECT time FROM bookings WHERE date = ?", (date,))
@@ -1397,7 +1412,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn.close()
         free_times = [t for t in times if t not in booked_times]
         if not free_times:
-            await query.edit_message_text("😔 Всі години на цей день вже зайняті. Спробуй обрати інший день!")
+            await query.edit_message_text(
+                "😔 Всі години на цей день вже зайняті або недоступні за часом. Спробуй обрати інший день!")
             return
         keyboard = [
             [InlineKeyboardButton(f"🕒 {time} | Моє ідеальне віконце 💖", callback_data=f'time_{time}')]
