@@ -985,7 +985,41 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(price_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
         return
 
-        # ...інші if...
+    if query.data.startswith('proc_'):
+        # Встановлюємо вибрану процедуру
+        proc_map = {
+            'proc_brows': 'Корекція брів (ідеальна форма)',
+            'proc_tint_brows': 'Фарбування + корекція брів',
+            'proc_lam_brows': 'Ламінування брів (WOW-ефект)',
+            'proc_lam_lashes': 'Ламінування вій (виразний погляд)'
+        }
+        context.user_data['procedure'] = proc_map[query.data]
+        context.user_data['step'] = 'book_date'
+        # Далі логіка показу дат...
+        today = datetime.now().date()
+        dates = []
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("SELECT date FROM deleted_days")
+        deleted = {row[0] for row in c.fetchall()}
+        conn.close()
+        for i in range(7):
+            d = today + timedelta(days=i)
+            date_str = d.strftime("%d.%m")
+            if date_str not in deleted:
+                dates.append(date_str)
+        if not dates:
+            await query.edit_message_text("⛔ Немає доступних днів для запису. Зверніться до майстра!")
+            return
+        keyboard = [
+            [InlineKeyboardButton(f"📅 Обираю {date} 💋", callback_data=f'date_{date}')] for date in dates
+        ]
+        keyboard.append([InlineKeyboardButton("⬅️ Назад до процедур", callback_data='back_to_procedure')])
+        await query.edit_message_text(
+            "🌸 Який день підходить для запису? Обирай дату!",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return
 
     # Ось тут додаєш блоки для редагування прайсу
     if query.data == 'edit_price':
@@ -1318,51 +1352,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="Markdown"
         )
         context.user_data.clear()
-        return
-
-    if query.data.startswith('proc_'):
-        print("==> [proc_] step before:", context.user_data.get('step'))
-        print("==> [proc_] booking_client_id:", context.user_data.get('booking_client_id'))
-        proc_map = {
-            'proc_brows': 'Корекція брів (ідеальна форма)',
-            'proc_tint_brows': 'Фарбування + корекція брів',
-            'proc_lam_brows': 'Ламінування брів (WOW-ефект)',
-            'proc_lam_lashes': 'Ламінування вій (виразний погляд)'
-        }
-        context.user_data['procedure'] = proc_map[query.data]
-        if context.user_data.get('step') == 'book_procedure':
-            context.user_data['step'] = 'book_date'
-        else:
-            context.user_data['step'] = None
-        print("==> [proc_] step after:", context.user_data.get('step'))
-        print("==> [proc_] procedure:", context.user_data.get('procedure'))
-        today = datetime.now().date()
-        dates = []
-        conn = sqlite3.connect('appointments.db')
-        c = conn.cursor()
-        c.execute("SELECT date FROM deleted_days")
-        deleted = {row[0] for row in c.fetchall()}
-        conn.close()
-        for i in range(7):
-            d = today + timedelta(days=i)
-            date_str = d.strftime("%d.%m")
-            if date_str not in deleted:
-                dates.append(date_str)
-        if not dates:
-            await query.edit_message_text("⛔ Немає доступних днів для запису. Зверніться до майстра!")
-            return
-        keyboard = [
-            [InlineKeyboardButton(f"📅 Обираю {date} 💋", callback_data=f'date_{date}')] for date in dates
-        ]
-        if context.user_data.get('booking_client_id'):
-            keyboard.append([InlineKeyboardButton("⬅️ Назад до картки клієнта",
-                                                  callback_data=f'client_{context.user_data["booking_client_id"]}')])
-        else:
-            keyboard.append([InlineKeyboardButton("⬅️ Назад до процедур", callback_data='back_to_procedure')])
-        await query.edit_message_text(
-            "🌸 Який день підходить для запису? Обирай дату!",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
         return
 
     if query.data.startswith('date_'):
