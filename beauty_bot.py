@@ -244,7 +244,8 @@ async def admin_service_handler(update: Update, context: ContextTypes.DEFAULT_TY
         [InlineKeyboardButton("🗓️ Керування графіком", callback_data="manage_schedule")],
         [InlineKeyboardButton("💸 Редагувати прайс", callback_data="edit_price")],
         [InlineKeyboardButton("📊 Статистика", callback_data="admin_stats")],
-        [InlineKeyboardButton("📈 Статистика за період", callback_data="stats_by_period")],   # ← ДОДАЙ ЦЮ ЛІНІЮ!
+        [InlineKeyboardButton("📈 Статистика за період", callback_data="stats_by_period")],
+        [InlineKeyboardButton("💸 Витрати", callback_data="expenses_service")],
         [InlineKeyboardButton("👥 Клієнти", callback_data="clients_service")],
         [InlineKeyboardButton("⬅️ Головне меню", callback_data="back_to_menu")]
     ]
@@ -1206,6 +1207,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await edit_schedule_handler(update, context)
         return
 
+    if query.data == "expenses_service":
+        keyboard = [
+            [InlineKeyboardButton("➕ Додати витрату", callback_data="expense_add")],
+            [InlineKeyboardButton("📋 Переглянути витрати", callback_data="expense_list")],
+            [InlineKeyboardButton("⬅️ Назад", callback_data="admin_service")]
+        ]
+        text = "💸 *Меню витрат*\nОберіть дію:"
+        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+        return
+
     if query.data == "stats_by_period":
         context.user_data['step'] = 'stats_period_start'
         await query.edit_message_text(
@@ -1214,6 +1225,26 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 [InlineKeyboardButton("⬅️ Назад", callback_data="admin_service")]
             ])
         )
+        return
+
+    if query.data == "expense_list":
+        from datetime import datetime, timedelta
+        today = datetime.now()
+        month_ago = (today - timedelta(days=30)).strftime("%d.%m.%Y")
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute("SELECT date, category, amount, note FROM expenses ORDER BY date DESC LIMIT 20")
+        rows = c.fetchall()
+        conn.close()
+        if rows:
+            text = "💸 *Останні витрати:*\n\n"
+            for date, cat, amount, note in rows:
+                text += f"— {date} | {cat} | {amount} грн | {note}\n"
+        else:
+            text = "Витрат поки не додано."
+        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("⬅️ Назад", callback_data="expenses_service")]
+        ]), parse_mode="Markdown")
         return
 
     if query.data == 'show_price':
@@ -1700,6 +1731,44 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         date_start = context.user_data['stats_period']['start']
         context.user_data['step'] = None
         await show_stats_for_custom_period(update, context, date_start=date_start, date_end=date_end)
+        return
+
+    if context.user_data.get('step') == 'expense_add_date':
+        context.user_data['expense'] = {}
+        context.user_data['expense']['date'] = update.message.text.strip()
+        context.user_data['step'] = 'expense_add_category'
+        await update.message.reply_text("Введіть категорію (наприклад: матеріали, оренда, реклама):")
+        return
+
+    if context.user_data.get('step') == 'expense_add_category':
+        context.user_data['expense']['category'] = update.message.text.strip()
+        context.user_data['step'] = 'expense_add_amount'
+        await update.message.reply_text("Введіть суму (грн):")
+        return
+
+    if context.user_data.get('step') == 'expense_add_amount':
+        context.user_data['expense']['amount'] = update.message.text.strip()
+        context.user_data['step'] = 'expense_add_note'
+        await update.message.reply_text("Додайте коротку примітку (або '-' якщо не потрібно):")
+        return
+
+    if context.user_data.get('step') == 'expense_add_note':
+        context.user_data['expense']['note'] = update.message.text.strip()
+        data = context.user_data['expense']
+        # Сохраняем в базу
+        conn = sqlite3.connect('appointments.db')
+        c = conn.cursor()
+        c.execute(
+            "INSERT INTO expenses (date, category, amount, note) VALUES (?, ?, ?, ?)",
+            (data['date'], data['category'], data['amount'], data['note'])
+        )
+        conn.commit()
+        conn.close()
+        context.user_data['step'] = None
+        context.user_data['expense'] = None
+        await update.message.reply_text("✅ Витрату додано!", reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("⬅️ Назад до витрат", callback_data="expenses_service")]]
+        ))
         return
 
     # --- СТАРТ РЕДАГУВАННЯ НОТАТКИ ---
