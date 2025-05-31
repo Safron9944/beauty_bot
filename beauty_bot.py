@@ -286,12 +286,13 @@ async def manage_schedule_handler(update: Update, context: ContextTypes.DEFAULT_
 # --- ГОЛОВНЕ МЕНЮ ДЛЯ АДМІНА ---
 async def admin_service_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-    [InlineKeyboardButton("🗓️ Керування графіком", callback_data="manage_schedule")],
-    [InlineKeyboardButton("💸 Редагувати прайс", callback_data="edit_price")],
-    [InlineKeyboardButton("📊 Статистика", callback_data="admin_stats")],
-    [InlineKeyboardButton("👥 Клієнти", callback_data="clients_service")],
-    [InlineKeyboardButton("⬅️ Головне меню", callback_data="back_to_menu")]
-]
+        [InlineKeyboardButton("🗓️ Керування графіком", callback_data="manage_schedule")],
+        [InlineKeyboardButton("💸 Редагувати прайс", callback_data="edit_price")],
+        [InlineKeyboardButton("📊 Статистика", callback_data="admin_stats")],
+        [InlineKeyboardButton("📈 Статистика за період", callback_data="stats_by_period")],   # ← ДОДАЙ ЦЮ ЛІНІЮ!
+        [InlineKeyboardButton("👥 Клієнти", callback_data="clients_service")],
+        [InlineKeyboardButton("⬅️ Головне меню", callback_data="back_to_menu")]
+    ]
     text = (
         "🌟 *Адмін-сервіс*\n\n"
         "Керуйте розкладом, дивіться всі записи і тримайте красу під контролем 👑\n"
@@ -1250,6 +1251,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await edit_schedule_handler(update, context)
         return
 
+    if query.data == "stats_by_period":
+        context.user_data['step'] = 'stats_period_start'
+        await query.edit_message_text(
+            "Введіть дату початку періоду (дд.мм.рррр):",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("⬅️ Назад", callback_data="admin_service")]
+            ])
+        )
+        return
+
     if query.data == 'show_price':
         price_text = get_price_text()
         keyboard = [
@@ -1722,6 +1733,20 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['edit_note_client_id'] = None
         return
 
+    if context.user_data.get('step') == 'stats_period_start':
+        date_start = update.message.text.strip()
+        context.user_data['stats_period'] = {'start': date_start}
+        context.user_data['step'] = 'stats_period_end'
+        await update.message.reply_text("Введіть дату кінця періоду (дд.мм.рррр):")
+        return
+
+    if context.user_data.get('step') == 'stats_period_end':
+        date_end = update.message.text.strip()
+        date_start = context.user_data['stats_period']['start']
+        context.user_data['step'] = None
+        await show_stats_for_custom_period(update, context, date_start=date_start, date_end=date_end)
+        return
+
     # --- СТАРТ РЕДАГУВАННЯ НОТАТКИ ---
     # --- СТАРТ РЕДАГУВАННЯ НОТАТКИ ---
 
@@ -1918,48 +1943,51 @@ async def admin_stats_handler(update, context):
 
 import calendar
 
-
-async def show_stats_for_period(update, context, period):
-    conn = sqlite3.connect('appointments.db')
-    c = conn.cursor()
-    now = datetime.now()
-
-    if period == 'today':
-        dates = [now.strftime("%d.%m")]
-        title = "📊 Статистика за *сьогодні*:"
-    elif period == 'week':
-        dates = [(now - timedelta(days=i)).strftime("%d.%m") for i in range(7)]
-        title = "📊 Статистика за *тиждень*:"
-    elif period == 'month':
-        month = now.month
-        year = now.year
-        month_days = calendar.monthrange(year, month)[1]
-        dates = [datetime(year, month, d).strftime("%d.%m") for d in range(1, month_days + 1)]
-        title = "📊 Статистика за *місяць*:"
-    else:
-        await update.callback_query.edit_message_text("Невідомий період.")
+async def show_stats_for_custom_period(update, context, date_start, date_end):
+    try:
+        start = datetime.strptime(date_start, "%d.%m.%Y")
+        end = datetime.strptime(date_end, "%d.%m.%Y")
+    except Exception:
+        await update.message.reply_text("Невірний формат дати! Спробуйте ще раз (дд.мм.рррр).")
+        context.user_data['step'] = 'stats_period_start'
         return
 
-    placeholders = ",".join("?" for _ in dates)
+    all_dates = [(start + timedelta(days=i)).strftime("%d.%m") for i in range((end - start).days + 1)]
+
+    conn = sqlite3.connect('appointments.db')
+    c = conn.cursor()
+    # Дохід
     c.execute(
-        f"""SELECT price_list.price FROM bookings 
-        LEFT JOIN price_list ON bookings.procedure = price_list.name 
-        WHERE date IN ({placeholders})""", dates
+        f"SELECT COALESCE(SUM(price_list.price),0) FROM bookings "
+        f"LEFT JOIN price_list ON bookings.procedure = price_list.name "
+        f"WHERE date IN ({','.join(['?']*len(all_dates))}) AND status='Підтверджено'",
+        all_dates
     )
-    prices = [row[0] or 0 for row in c.fetchall()]
-    count = len(prices)
-    total = sum(prices)
+    income = c.fetchone()[0] or 0
+
+    # Витрати
+    c.execute(
+        f"SELECT COALESCE(SUM(amount),0) FROM expenses "
+        f"WHERE date IN ({','.join(['?']*len(all_dates))})",
+        all_dates
+    )
+    expenses = c.fetchone()[0] or 0
+
+    profit = income - expenses
     conn.close()
 
+    keyboard = [
+        [InlineKeyboardButton("Змінити період", callback_data="stats_by_period")],
+        [InlineKeyboardButton("⬅️ Назад", callback_data="admin_service")]
+    ]
     text = (
-        f"{title}\n\n"
-        f"• Кількість записів: *{count}*\n"
-        f"• Дохід: *{total} грн*\n"
-        "\n⬅️ Статистика"
+        f"📊 Статистика за період:\n"
+        f"З: {date_start}   По: {date_end}\n\n"
+        f"Дохід: {income} грн\n"
+        f"Витрати: {expenses} грн\n"
+        f"Чистий прибуток: {profit} грн"
     )
-    keyboard = [[InlineKeyboardButton("⬅️ Статистика", callback_data='admin_stats')]]
-    await update.callback_query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard),
-                                                  parse_mode="Markdown")
+    await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
 
 
 # --- Всі твої async def ... ---
