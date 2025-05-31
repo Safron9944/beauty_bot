@@ -372,9 +372,15 @@ async def add_condition_start(update, context):
     client_id = int(query.data.split("_")[-1])
     context.user_data["condition_client_id"] = client_id
 
-    await query.edit_message_text("➕ Введіть текст нової умови:")
-    return ADDING_CONDITION
+    keyboard = [
+        [InlineKeyboardButton("⬅️ Назад", callback_data=f"client_{client_id}")]
+    ]
 
+    await query.edit_message_text(
+        "➕ Введіть текст нової умови:",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+    return ADDING_CONDITION
 
 async def save_condition(update, context):
     text = update.message.text.strip()
@@ -440,8 +446,14 @@ async def edit_note_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['step'] = 'edit_note'
     context.user_data['edit_note_client_id'] = client_id
 
-    await query.edit_message_text("📝 Введіть нову нотатку для клієнта:")
+    keyboard = [
+        [InlineKeyboardButton("⬅️ Назад", callback_data=f"client_{client_id}")]
+    ]
 
+    await query.edit_message_text(
+        "📝 Введіть нову нотатку для клієнта:",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
 async def save_edited_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
     note = update.message.text.strip()
@@ -460,7 +472,6 @@ async def save_edited_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("✅ Нотатку оновлено.")
     await show_client_card(update, context, client_id)
     return ConversationHandler.END
-
 
 # --- ПІДТВЕРДЖЕННЯ ТА ВИДАЛЕННЯ ---
 async def delete_condition(update, context):
