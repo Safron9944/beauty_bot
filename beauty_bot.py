@@ -1136,10 +1136,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton(f"🕒 {time} | Моє ідеальне віконце 💖", callback_data=f'time_{time}')]
             for time in free_times
         ]
+        # Додаємо кнопку назад залежно від сценарію
         if context.user_data.get('booking_client_id'):
             keyboard.append([InlineKeyboardButton("⬅️ Назад до вибору дати", callback_data='back_to_procedure')])
         else:
             keyboard.append([InlineKeyboardButton("⬅️ Назад до календаря", callback_data='back_to_date')])
+
         date_short = datetime.strptime(date, "%d.%m.%Y").strftime("%d.%m")
         await query.edit_message_text(
             f"👑 Обрано дату: {date_short}\n"
