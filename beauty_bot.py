@@ -1,10 +1,28 @@
 from dotenv import load_dotenv
 import os
 
+# Завантажуємо змінні середовища
 load_dotenv()
-TOKEN = os.getenv('TELEGRAM_TOKEN')
-ADMIN_IDS = list(map(int, os.getenv("ADMIN_IDS", "").split(",")))
 
+# Отримуємо токен Telegram
+TOKEN = os.getenv('TELEGRAM_TOKEN')
+if not TOKEN:
+    raise ValueError("TELEGRAM_TOKEN змінна середовища не задана!")
+
+# Перевірка на наявність та правильність змінної ADMIN_IDS
+admin_ids_env = os.getenv("ADMIN_IDS", "").strip()
+if admin_ids_env:
+    ADMIN_IDS = list(map(int, admin_ids_env.split(",")))
+else:
+    ADMIN_IDS = []  # Встановлюємо порожній список, якщо змінна не задана або порожня
+
+# Перевірка на наявність інших важливих змінних середовища
+GOOGLE_CREDS_JSON = os.getenv('GOOGLE_CREDS_JSON')
+SPREADSHEET_ID = os.getenv('SPREADSHEET_ID')
+if not GOOGLE_CREDS_JSON or not SPREADSHEET_ID:
+    raise ValueError("Змінні середовища для Google Credentials або Spreadsheet ID не задані!")
+
+# Підключення до SQLite
 import sqlite3
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -14,6 +32,7 @@ from telegram.ext import (
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime, timedelta
 import collections
+
 try:
     from google_sheets import add_to_google_sheet
 except ImportError:
@@ -29,6 +48,7 @@ MASTER_NAME = "Марія"
 MASTER_GEO = "вул. Київська 41, Могилів-Подільський, 24000, Україна"
 MASTER_GEO_LINK = "https://maps.app.goo.gl/n6xvT6bpMcL5QjHP9"
 
+# Ініціалізація планувальника
 scheduler = BackgroundScheduler()
 scheduler.start()
 
