@@ -6,6 +6,7 @@ load_dotenv()
 
 # Отримуємо токен Telegram
 TOKEN = os.getenv('TELEGRAM_TOKEN')
+print(f"Bot Token: {TOKEN}")  # Логування токену для перевірки
 if not TOKEN:
     raise ValueError("TELEGRAM_TOKEN змінна середовища не задана!")
 
