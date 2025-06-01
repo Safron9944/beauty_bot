@@ -2439,10 +2439,21 @@ async def set_day_off(update: Update, context: ContextTypes.DEFAULT_TYPE, date):
         )
     )
 
+def init_db():
+    # Ваш код для ініціалізації бази даних
+    print("База даних ініціалізована")
+
+# Визначаємо стани для ConversationHandler
+ADDING_CONDITION, EDITING_CONDITION, EDITING_NOTE = range(3)
+
+# Оновлений main()
 def main():
     init_db()  # Ініціалізація бази даних
-    app = ApplicationBuilder().token("YOUR_BOT_TOKEN").build()
 
+    # ініціалізація додатку
+    app = ApplicationBuilder().token(TOKEN).build()
+
+    # Додаємо хендлери
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
 
@@ -2474,6 +2485,7 @@ def main():
     # --- Загальний універсальний callback-хендлер для решти кнопок ---
     app.add_handler(CallbackQueryHandler(button_handler))  # Додається останнім!
 
+    # Запуск polling для отримання оновлень
     app.run_polling()
 
 if __name__ == "__main__":
