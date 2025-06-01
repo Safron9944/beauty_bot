@@ -107,12 +107,6 @@ def get_available_dates(days_ahead=7):
     print(f"DEBUG | Повертаємо дати: {[d[0] for d in dates]}")
     return dates
 
-
-
-
-
-
-
 def init_db():
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
@@ -832,6 +826,22 @@ async def show_client_card_by_phone(update, context, phone):
                 chat_id=update.effective_user.id,
                 text="Клієнта з цим номером не знайдено."
             )
+async def client_callback_handler(update, context):
+    query = update.callback_query
+    await query.answer()
+
+    # Отримуємо дані з callback (наприклад, "client_1", "client_2", і т.д.)
+    callback_data = query.data
+
+    if callback_data.startswith('client_'):
+        # Отримуємо client_id з callback_data
+        client_id = int(callback_data.split('_')[1])  # Видаляємо 'client_' і отримуємо числовий ID
+
+        # Викликаємо функцію для показу картки клієнта
+        await show_client_card(update, context, client_id)
+    else:
+        # Інша логіка для обробки callback-запиту
+        await query.edit_message_text("Обрано іншу дію.")
 
 async def show_clients_list(update, context):
     import sqlite3
@@ -2409,8 +2419,8 @@ async def set_day_off(update: Update, context: ContextTypes.DEFAULT_TYPE, date):
     )
 
 def main():
-    init_db()
-    app = ApplicationBuilder().token(TOKEN).build()
+    init_db()  # Ініціалізація бази даних
+    app = ApplicationBuilder().token("YOUR_BOT_TOKEN").build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
@@ -2447,5 +2457,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
