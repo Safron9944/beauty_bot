@@ -654,6 +654,10 @@ async def client_add_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     )
 
 
+def is_valid_phone(phone):
+    # Очищуємо номер телефону і перевіряємо правильність формату
+    return bool(re.match(r"^\+380\d{9}$", phone))  # Приклад для України
+
 async def client_add_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = context.user_data.get('client_add')
     if not data:
@@ -672,16 +676,16 @@ async def client_add_text_handler(update: Update, context: ContextTypes.DEFAULT_
 
         context.user_data['client_add']['phone'] = phone
         context.user_data['client_add']['note'] = ""  # Примітка одразу порожня
-        # ---- Ось тут перевірка на дублі ----
+
+        # Перевірка на дублювання по телефону та імені
         name = context.user_data['client_add']['name']
         conn = sqlite3.connect('appointments.db')
         c = conn.cursor()
         c.execute("""
-                  SELECT id
-                  FROM clients
-                  WHERE REPLACE(REPLACE(phone, ' ', ''), '-', '') = ?
-                     OR LOWER(REPLACE(name, ' ', '')) = LOWER(REPLACE(?, ' ', ''))
-                  """, (phone, name))
+            SELECT id FROM clients
+            WHERE REPLACE(REPLACE(phone, ' ', ''), '-', '') = ? 
+               OR LOWER(REPLACE(name, ' ', '')) = LOWER(REPLACE(?, ' ', ''))
+        """, (phone, name))
         duplicate = c.fetchone()
         if duplicate:
             await update.message.reply_text("Клієнт з таким телефоном або ПІБ вже існує! Ось його картка:")
@@ -717,19 +721,24 @@ async def client_search_text_handler(update: Update, context: ContextTypes.DEFAU
     if not context.user_data.get('client_search'):
         return
     search = update.message.text.strip().lower()
-    import re
+
+    # Очищення телефону від нецифрових символів
     def clean_phone(phone):
         return re.sub(r"\D", "", phone)
+
     search_clean = clean_phone(search)
+
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
     c.execute("""
         SELECT id, name, phone FROM clients 
-        WHERE LOWER(name) LIKE ? OR REPLACE(REPLACE(REPLACE(REPLACE(phone, '+', ''), ' ', ''), '-', ''), '(', '') LIKE ?
+        WHERE LOWER(name) LIKE ? 
+        OR REPLACE(REPLACE(REPLACE(REPLACE(phone, '+', ''), ' ', ''), '-', ''), '(', '') LIKE ?
         LIMIT 10
     """, (f"%{search}%", f"%{search_clean}%"))
     rows = c.fetchall()
     conn.close()
+
     if not rows:
         await update.message.reply_text("Клієнта не знайдено.")
     else:
@@ -739,8 +748,8 @@ async def client_search_text_handler(update: Update, context: ContextTypes.DEFAU
         ]
         buttons.append([InlineKeyboardButton("⬅️ Назад", callback_data="clients_service")])
         await update.message.reply_text("Оберіть клієнта:", reply_markup=InlineKeyboardMarkup(buttons))
-    context.user_data.pop('client_search', None)
 
+    context.user_data.pop('client_search', None)
 
 async def show_client_card(update, context, client_id):
     import sqlite3
@@ -794,12 +803,11 @@ async def show_client_card(update, context, client_id):
         parse_mode="Markdown"
     )
 
-
 async def show_client_card_by_phone(update, context, phone):
     import re
     import sqlite3
 
-    # Нормалізуємо номер (залишаємо тільки цифри)
+    # Очищення номеру телефону
     clean = lambda x: re.sub(r"\D", "", x)
     phone_clean = clean(phone)
 
@@ -824,21 +832,29 @@ async def show_client_card_by_phone(update, context, phone):
                 chat_id=update.effective_user.id,
                 text="Клієнта з цим номером не знайдено."
             )
+
 async def show_clients_list(update, context):
     import sqlite3
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
+    # Перевірка, чи є callback_query
+    if not update.callback_query:
+        await update.message.reply_text("Цю функцію можна викликати лише з кнопки!")
+        return
+
     query = update.callback_query
     await query.answer()
 
+    # Підключення до бази даних
     conn = sqlite3.connect('appointments.db')
     c = conn.cursor()
     c.execute("SELECT id, name FROM clients ORDER BY name")
     clients = c.fetchall()
     conn.close()
 
+    # Якщо клієнтів немає, повідомляємо про це
     if not clients:
-        await query.edit_message_text("Список клієнтів порожній.")
+        await query.edit_message_text("Список клієнтів порожній. Спробуйте додати нового клієнта.")
         return
 
     # Кнопка для додавання нового клієнта
@@ -846,13 +862,15 @@ async def show_clients_list(update, context):
         [InlineKeyboardButton("Додати нового клієнта", callback_data="add_new_client")]
     ]
 
-    # Виводимо список клієнтів
+    # Виведення списку клієнтів з кнопками
     keyboard.extend(
         [InlineKeyboardButton(name, callback_data=f"client_{client_id}") for client_id, name in clients]
     )
 
+    # Кнопка для повернення до головного меню
     keyboard.append([InlineKeyboardButton("⬅️ Назад до головного меню", callback_data="back_to_menu")])
 
+    # Виведення списку клієнтів
     await query.edit_message_text(
         "📋 Список клієнтів:",
         reply_markup=InlineKeyboardMarkup(keyboard)
@@ -861,24 +879,49 @@ async def show_clients_list(update, context):
 
 async def save_note_to_booking(update, context):
     import sqlite3
+
     user_step = context.user_data.get('step')
+
     if user_step == 'add_note' and update.effective_user.id in ADMIN_IDS:
+        # Перевіряємо, чи є note_booking_id у user_data
         booking_id = context.user_data.get('note_booking_id')
-        note_text = update.message.text
-        conn = sqlite3.connect('appointments.db')
-        c = conn.cursor()
-        c.execute("UPDATE bookings SET note=? WHERE id=?", (note_text, booking_id))
-        conn.commit()
-        conn.close()
-        await update.message.reply_text("Примітку збережено! 📝")
-        context.user_data['step'] = None
-        context.user_data['note_booking_id'] = None
+        if not booking_id:
+            await update.message.reply_text("Не знайдено ID запису для примітки.")
+            return
+
+        note_text = update.message.text.strip()
+
+        if not note_text:
+            await update.message.reply_text("Примітка не може бути порожньою.")
+            return
+
+        try:
+            # Підключення до бази даних
+            conn = sqlite3.connect('appointments.db')
+            c = conn.cursor()
+
+            # Оновлення примітки в базі
+            c.execute("UPDATE bookings SET note=? WHERE id=?", (note_text, booking_id))
+            conn.commit()
+            conn.close()
+
+            # Підтвердження збереження примітки
+            await update.message.reply_text("Примітку збережено! 📝")
+
+            # Очищення стану
+            context.user_data['step'] = None
+            context.user_data['note_booking_id'] = None
+        except sqlite3.Error as e:
+            await update.message.reply_text(f"Помилка при збереженні примітки: {e}")
+            return
         return
 
     # --- Можеш додати інші сценарії user_step нижче, якщо потрібно ---
 
     # --- Якщо нічого не підійшло ---
     await update.message.reply_text("Оберіть дію за допомогою кнопок нижче та подаруйте собі красу! 💖")
+
+
 # --- ІНШІ АДМІН ФУНКЦІЇ ---
 async def delete_day_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     import sqlite3
