@@ -1861,21 +1861,20 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # --- ВВЕДЕННЯ ТЕКСТУ ---
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_step = context.user_data.get('step')
-    text = update.message.text
-
+    text = update.message.text  # Отримуємо текст повідомлення
 
     # --- 2. Додавання нового клієнта ---
     if context.user_data.get('client_add'):
         await client_add_text_handler(update, context)
         return
     if context.user_data.get('step') == 'add_name':
-        name = update.message.text.strip()
+        name = text.strip()
         context.user_data['new_client_name'] = name
         await update.message.reply_text("Введіть номер телефону нового клієнта:")
         context.user_data['step'] = 'add_phone'  # Крок 2: введення телефону
         return
     if context.user_data.get('step') == 'add_phone':
-        phone = update.message.text.strip()
+        phone = text.strip()
         name = context.user_data.get('new_client_name')
 
         # Зберігаємо клієнта в базу
@@ -1891,13 +1890,13 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # --- 3. Пошук клієнта ---
-    if query.data == "client_search_start":
+    if text == "client_search_start":  # Замість query.data використовуємо update.message.text
         await update.message.reply_text("Введіть номер телефону клієнта для пошуку.")
         context.user_data['step'] = 'search_phone'
         return
 
     if context.user_data.get('step') == 'search_phone':
-        phone = update.message.text.strip()
+        phone = text.strip()
         await show_client_card_by_phone(update, context, phone)
         context.user_data['step'] = None
         return
